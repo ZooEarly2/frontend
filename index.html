@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      viewport-fit=cover + maximum-scale=1: 아이가 두 손가락으로 화면을 확대해
+      레이아웃이 어긋나는 일을 막는다. 글자 크기는 애초에 크게 잡았다.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#FFF6EE" />
+    <meta
+      name="description"
+      content="ZooEarly — 이주배경학생들의 빠른 학교 적응을 도와주는 앱"
+    />
+    <link rel="icon" href="/characters/me-cheer.png" />
+    <link rel="apple-touch-icon" href="/characters/me-cheer.png" />
+
+    <link rel="preload" as="image" href="/loading.jpg" />
+    <!--
+      글꼴은 직접 담는다(public/fonts). 외부 CDN 이 막히거나 느린 환경에서도
+      글자가 한 번 갈아끼워지며 튀는 일이 없다.
+      가장 먼저 쓰이는 두 벌만 미리 받는다 — 나머지 굵기는 쓰일 때 받아도 늦지 않다.
+    -->
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/Pretendard-Bold.woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/Pretendard-Regular.woff2"
+      crossorigin
+    />
+
+    <title>ZooEarly · 오늘의 학교생활</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

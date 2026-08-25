@@ -1,0 +1,104 @@
+/*
+ * 디자인 토큰.
+ *
+ * 색은 프로토타입 Figma 토큰(크림 배경 #FFFDF9 · 코랄 #F2A0A8)에서 출발해,
+ * 배경 일러스트에서 실제로 뽑은 색(하늘·잔디·나무 그늘)을 보조색으로 더했다.
+ * 화면마다 다른 그림 위에 같은 UI 가 얹히므로, 카드·버튼은 그림에서 뜨지 않게
+ * 채도를 낮춘 크림 계열로 두고 강조만 코랄로 준다.
+ *
+ * 유아용 참조(Khan Academy Kids, Lingokids, Sago Mini, Pinkfong, Duolingo ABC)에서
+ * 공통으로 가져온 것: 큰 라운드(20~32px), 두꺼운 아래 그림자로 만든 입체 버튼,
+ * 파스텔 저채도 배경 + 고채도 액션 하나, 그리고 넉넉한 탭 영역(최소 56px).
+ */
+
+:root {
+  /* ── 바탕 ─────────────────────────────────────── */
+  --cream: #fffdf9;
+  --cream-deep: #fff6ee;
+  --sand: #fbf3e9;
+  --surface: #ffffff;
+
+  /* ── 주요 색 ───────────────────────────────────── */
+  --coral: #f2a0a8;
+  --coral-deep: #e0838d;
+  --coral-shadow: #c96b76;
+  --coral-tint: #fdeef0;
+
+  --mint: #7fd1c1;
+  --mint-deep: #5cb8a7;
+  --mint-tint: #e6f7f3;
+
+  --sky: #a9d6f5;
+  --sky-deep: #7cbbe8;
+  --sky-tint: #ebf5fd;
+
+  --sunshine: #ffd36e;
+  --sunshine-deep: #f0b93f;
+  --sunshine-tint: #fff6de;
+
+  --grape: #c3aef0;
+  --grape-tint: #f1ecfd;
+
+  /* ── 글자 ─────────────────────────────────────── */
+  --ink: #4a3b2e;
+  --ink-soft: #8a7358;
+  --ink-faint: #b6a894;
+  --on-dark: #fffdf9;
+
+  /* ── 선·면 ────────────────────────────────────── */
+  --line: #ede3d6;
+  --line-strong: #e0d2bf;
+
+  /* 그림 위에 글자를 얹을 때 까는 막. 그림을 가리지 않을 만큼만 흐리게 */
+  --scrim: rgba(255, 253, 249, 0.82);
+  --scrim-strong: rgba(255, 253, 249, 0.97);
+
+  /* ── 라운드 ───────────────────────────────────── */
+  --r-sm: 12px;
+  --r-md: 18px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+  --r-pill: 999px;
+
+  /* ── 그림자 ───────────────────────────────────── */
+  /* 두 겹으로 쌓는다 — 가까운 그림자는 형태를, 먼 그림자는 떠 있는 느낌을 만든다 */
+  --shadow-card: 0 2px 4px rgba(122, 94, 68, 0.06), 0 10px 24px rgba(122, 94, 68, 0.1);
+  --shadow-float: 0 4px 8px rgba(122, 94, 68, 0.08), 0 18px 40px rgba(122, 94, 68, 0.16);
+  --shadow-soft: 0 1px 2px rgba(122, 94, 68, 0.05), 0 6px 14px rgba(122, 94, 68, 0.08);
+
+  /* ── 타이포 ───────────────────────────────────── */
+  /*
+   * 글꼴은 두 벌이다 (fonts.css 에서 담는다).
+   *
+   *  Pretendard  — 버튼·제목·말풍선·본문. 획이 곧고 균일해 작은 글씨도 또렷하다.
+   *                이전에 쓰던 Jua 는 획이 두껍고 둥글어 글자가 뭉개져 보였다.
+   *  omyu pretty — 카드 안 설명 문구와 동화 내레이션. 손으로 적어 준 듯한 결이라
+   *                "선생님이 건네는 말" 자리에 맞는다.
+   */
+  --font-display: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --font-body: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  /** 카드 안 설명·동화 내레이션 */
+  --font-note: 'omyu pretty', 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+  --font-story: 'omyu pretty', 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+  /** 동시 본문 — 글자 모양을 배우는 자리라 획이 또렷한 고딕을 쓴다 */
+  --font-poem: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+
+  /* ── 스테이지 ─────────────────────────────────── */
+  /* 화면 하나의 기준 크기. 데스크톱에서는 이 폭으로 가운데 세운다 */
+  --stage-w: 430px;
+  --stage-max-h: 932px;
+}
+
+/*
+ * 움직임을 줄이도록 설정한 사용자에게는 흔들림·튀어오름을 끈다.
+ * 전정기관이 예민한 아이도 있어서, 이 설정은 취향이 아니라 접근성이다.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

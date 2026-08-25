@@ -1,0 +1,56 @@
+{
+  "me": {
+    "hello": {
+      "file": "me-hello.png",
+      "w": 498,
+      "h": 720
+    },
+    "speak": {
+      "file": "me-speak.png",
+      "w": 466,
+      "h": 720
+    },
+    "happy": {
+      "file": "me-happy.png",
+      "w": 456,
+      "h": 720
+    },
+    "sad": {
+      "file": "me-sad.png",
+      "w": 398,
+      "h": 720
+    },
+    "cheer": {
+      "file": "me-cheer.png",
+      "w": 484,
+      "h": 720
+    }
+  },
+  "teacher": {
+    "hello": {
+      "file": "teacher-hello.png",
+      "w": 485,
+      "h": 720
+    },
+    "speak": {
+      "file": "teacher-speak.png",
+      "w": 436,
+      "h": 720
+    },
+    "happy": {
+      "file": "teacher-happy.png",
+      "w": 582,
+      "h": 720
+    },
+    "sad": {
+      "file": "teacher-sad.png",
+      "w": 385,
+      "h": 720
+    },
+    "cheer": {
+      "file": "teacher-cheer.png",
+      "w": 471,
+      "h": 720
+    }
+  }
+}

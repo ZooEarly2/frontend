@@ -1,0 +1,409 @@
+@import './fonts.css';
+@import './tokens.css';
+
+/* ── 리셋 ─────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--cream-deep);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* 아이가 버튼을 누를 때 파란 하이라이트가 번쩍이지 않게 한다 */
+  -webkit-tap-highlight-color: transparent;
+  /* 길게 눌러 글자가 선택되면 드래그처럼 보여 오작동으로 읽힌다 */
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+/* 화면에는 안 보이지만 스크린리더는 읽는 텍스트 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ── 앱 셸 ───────────────────────────────────────── */
+
+/*
+ * 데스크톱에서 좁은 세로 화면만 덩그러니 두면 허전하다. 지금 장면의 배경을
+ * 크게 확대·흐리게 깔아 무대 조명처럼 쓴다 (Epic!·Toca Boca 가 쓰는 방식).
+ * 모바일에서는 스테이지가 화면을 꽉 채우므로 이 층은 보이지 않는다.
+ */
+.app-shell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  overflow: hidden;
+  background: var(--cream-deep);
+}
+
+.app-shell__ambience {
+  position: fixed;
+  inset: -10%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(48px) saturate(1.15);
+  transform: scale(1.15);
+  opacity: 0.55;
+  transition: background-image 0.4s ease;
+  pointer-events: none;
+}
+
+.app-shell__ambience::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(255, 253, 249, 0.1), rgba(255, 246, 238, 0.75));
+}
+
+.stage {
+  position: relative;
+  width: min(100vw, var(--stage-w));
+  height: min(100dvh, var(--stage-max-h));
+  overflow: hidden;
+  background: var(--cream);
+  isolation: isolate;
+}
+
+@media (min-width: 520px) and (min-height: 720px) {
+  .stage {
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-float);
+    height: min(calc(100dvh - 48px), var(--stage-max-h));
+  }
+}
+
+/* ── 장면 배경 ───────────────────────────────────── */
+
+.scene {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+}
+
+/*
+ * 대화가 오가는 화면의 배경은 초점을 흐린다.
+ *
+ * 배경 일러스트에는 이미 주인공이 그려져 있어서, 그 위에 캐릭터 스프라이트와 카드를
+ * 얹으면 어디를 봐야 할지 알 수 없게 된다. 배경을 아웃포커스로 밀어내면 무대 뒤
+ * 그림처럼 물러나고, 지금 말하고 있는 캐릭터와 눌러야 할 카드가 앞으로 나온다.
+ */
+.scene--soft {
+  filter: blur(3px) saturate(0.92) brightness(1.06);
+  transform: scale(1.06); /* 블러가 만드는 가장자리 비침을 덮는다 */
+}
+
+/*
+ * 인트로용 — 아주 약한 흐림.
+ *
+ * 인트로는 "여기가 어디인지" 를 알려주는 화면이라 배경이 읽혀야 한다. 다만 배경에
+ * 그려진 인물이 또렷하면 앞에 세운 캐릭터와 경쟁해서, 말풍선이 누구 말인지 흐려진다.
+ * 장소는 알아볼 만큼 남기고 인물만 뒤로 물러날 정도로만 흐린다.
+ */
+.scene--soft-lite {
+  filter: blur(1.6px) saturate(0.94) brightness(1.05);
+  transform: scale(1.04);
+}
+
+/*
+ * 배경 위에 글자를 얹으면 그림의 밝은 부분에서 읽히지 않는다.
+ * 글자가 놓이는 위/아래에만 크림색을 옅게 덮어 대비를 만든다.
+ */
+.scene--veiled::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 253, 249, 0.88) 0%,
+    rgba(255, 253, 249, 0.4) 26%,
+    rgba(255, 253, 249, 0) 46%,
+    rgba(255, 253, 249, 0.55) 76%,
+    rgba(255, 253, 249, 0.92) 100%
+  );
+}
+
+/*
+ * 그림이 없는 화면(온보딩·홈·메뉴)의 바탕.
+ *
+ * 여기에 장면 일러스트를 깔면 안 된다 — 그 그림들은 이미 주인공이 그려져 있어서,
+ * 위에 캐릭터 스프라이트를 얹으면 같은 아이가 두 번 나온다. 대신 부드러운 하늘색
+ * 그러데이션에 구름 몇 개만 띄워 캐릭터가 주인공으로 남게 한다.
+ */
+.scene--sky {
+  background-image:
+    radial-gradient(120px 70px at 18% 16%, rgba(255, 255, 255, 0.9), transparent 70%),
+    radial-gradient(160px 80px at 78% 26%, rgba(255, 255, 255, 0.75), transparent 70%),
+    radial-gradient(140px 70px at 42% 8%, rgba(255, 255, 255, 0.6), transparent 70%),
+    linear-gradient(180deg, #dcefff 0%, #fdf1f3 46%, #fff8ec 100%);
+}
+
+.scene--meadow {
+  background-image:
+    radial-gradient(150px 80px at 22% 12%, rgba(255, 255, 255, 0.85), transparent 70%),
+    radial-gradient(130px 70px at 80% 22%, rgba(255, 255, 255, 0.7), transparent 70%),
+    linear-gradient(180deg, #e7f6ff 0%, #f4fbf1 52%, #fff6e6 100%);
+}
+
+/*
+ * 동화 화면의 바탕 — 그림책 종이.
+ *
+ * 여기에 장면 그림을 깔면 안 된다. 그림은 아래 카드 안에 이미 한 번 들어가는데,
+ * 배경에도 같은 그림을 깔면 두 겹이 되어 글자가 그림 위에 뜬 것처럼 보이고 읽기 어렵다.
+ * 바탕은 종이로 비워 두고, 그림은 카드 한 곳에서만 보여준다.
+ */
+.scene--paper {
+  background-image:
+    radial-gradient(120% 60% at 50% 0%, rgba(255, 255, 255, 0.9), transparent 60%),
+    radial-gradient(90% 50% at 50% 100%, rgba(255, 236, 224, 0.85), transparent 60%),
+    linear-gradient(180deg, #fffaf3 0%, #fff4ea 100%);
+}
+
+/* 바탕 위에 떠다니는 작은 장식. 아이 눈이 머무를 곳을 만든다 */
+.scene__floaties {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.scene__floaties svg {
+  position: absolute;
+  opacity: 0.55;
+  filter: drop-shadow(0 2px 3px rgba(122, 94, 68, 0.08));
+  animation: bob 6s ease-in-out infinite;
+}
+
+.scene-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: max(16px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+}
+
+.scene-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 0;
+}
+
+.scene-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  /*
+   * 세계관 소개의 탭 레이어(화면 아무 곳이나 눌러 넘기는 층)보다 위에 있어야 한다.
+   * 위치를 지정하지 않으면 정적인 요소라, 그 위에 얹힌 탭 레이어가 "다음"·"건너뛰기"
+   * 클릭을 통째로 가로챈다 — 실제로 건너뛰기가 다음 넘기기로 동작했다.
+   */
+  position: relative;
+  z-index: 1;
+  /* 부모(.scene-body)가 align-items: center 라 폭을 안 주면 내용만큼만 줄어든다.
+     그러면 버튼의 width:100% 가 "내용 너비의 100%" 가 되어 화면 가운데 좁게 뜬다 */
+  width: 100%;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+}
+
+.row > * {
+  /* basis 를 0 으로 둬야 글자 수와 무관하게 반반이 된다. auto 로 두면
+     "다시 들어보기" 옆의 "다음" 이 눌리기 힘들 만큼 좁아진다 */
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.spacer {
+  flex: 1;
+  min-height: 8px;
+}
+
+/* ── 글자 ────────────────────────────────────────── */
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 25px;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  text-align: center;
+  white-space: pre-line;
+}
+
+.subtitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1.4;
+  text-align: center;
+  white-space: pre-line;
+}
+
+.lead {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  text-align: center;
+  white-space: pre-line;
+}
+
+.caption {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+/* 배경 그림 위에 바로 놓이는 글자 — 흰 테두리로 어디서든 읽히게 한다 */
+.on-scene {
+  text-shadow:
+    0 1px 0 var(--cream),
+    0 0 12px rgba(255, 253, 249, 0.95),
+    0 0 28px rgba(255, 253, 249, 0.8);
+}
+
+/* ── 카드 ────────────────────────────────────────── */
+
+.card {
+  border-radius: var(--r-lg);
+  background: var(--scrim-strong);
+  backdrop-filter: blur(6px);
+  box-shadow: var(--shadow-card);
+  padding: 18px 20px;
+}
+
+/*
+ * 카드 안의 글은 "선생님이 건네는 말" 이다 — 버튼·제목과 다른 결이어야 한다.
+ * 손글씨체가 그 자리를 맡는다. 획이 얇아 크기를 조금 키운다.
+ */
+.card .title,
+.card .subtitle,
+.card .lead {
+  font-family: var(--font-note);
+  color: var(--ink);
+}
+
+.card .title {
+  font-size: 29px;
+}
+
+.card .subtitle {
+  font-size: 23px;
+}
+
+.card .lead {
+  font-size: 19px;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+/* ── 애니메이션 ──────────────────────────────────── */
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(-1deg);
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.82) translateY(8px);
+  }
+  70% {
+    transform: scale(1.04) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.86);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+@keyframes sparkle {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.7) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1) rotate(20deg);
+  }
+}
+
+@keyframes dots {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-5px);
+  }
+}

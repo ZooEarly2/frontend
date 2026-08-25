@@ -1,0 +1,46 @@
+/*
+ * 글꼴은 두 벌만 쓴다. 둘 다 직접 담아 서비스한다 —
+ * 외부 CDN 이 막히거나 느린 환경에서도 글자가 튀지 않는다.
+ *
+ *  Pretendard  : 버튼·제목·본문 등 UI 전반. 획이 곧고 균일해 작은 글씨도 또렷하다
+ *  omyu pretty : 카드 안 설명 문구·동화 내레이션. 사람이 손으로 적어 준 듯한 결
+ *
+ * 한글은 KS X 1001 상용 2350자만 담았다. 음절 전체(11172자)를 담으면 손글씨체인
+ * omyu pretty 하나가 3.4MB 라 첫 화면이 그만큼 늦어진다. 2350자로도 아이 이름을
+ * 포함해 실제로 쓰이는 글자는 사실상 모두 들어간다.
+ *
+ * font-display: swap — 글꼴을 받는 동안 시스템 글꼴로 먼저 보여준다.
+ * 아이를 빈 화면 앞에 세워두지 않는 편이 낫다.
+ */
+
+@font-face {
+  font-family: 'Pretendard';
+  src: url('/fonts/Pretendard-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Pretendard';
+  src: url('/fonts/Pretendard-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Pretendard';
+  src: url('/fonts/Pretendard-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'omyu pretty';
+  src: url('/fonts/OmyuPretty.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

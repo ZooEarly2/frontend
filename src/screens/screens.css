@@ -1,0 +1,1368 @@
+/* 화면별 레이아웃. 부품의 생김새는 components/ui.css 가 갖는다. */
+
+/* ── 첫 로딩 화면 ───────────────────────────────── */
+
+/*
+ * 스테이지 위에 덮는다. 아래에서는 이미 앱이 그려지고 있고, 이 층이 걷히면서
+ * 첫 화면이 드러난다 — 흰 화면을 거치지 않는다.
+ */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  /* 그림 가장자리 색과 같은 바탕. 화면비가 달라 남는 자리를 메운다 */
+  background: #fbeec9;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+.splash--leaving {
+  opacity: 0;
+  transform: scale(1.04);
+  pointer-events: none;
+}
+
+.splash__art {
+  width: min(100vw, var(--stage-w));
+  height: min(100dvh, var(--stage-max-h));
+  background-image: url('/loading.jpg');
+  /*
+   * `cover` 지만 그림이 잘리지 않는다. 원본 좌우에 가장자리 색을 늘려 붙여
+   * 어떤 화면비보다 넓게 만들어 뒀기 때문에, 잘려 나가는 것은 그 여백뿐이다.
+   * `contain` 으로 두면 위아래에 빈 띠가 생겨 화면이 덜 찬 것처럼 보인다.
+   */
+  background-size: cover;
+  background-position: center;
+}
+
+@media (min-width: 520px) and (min-height: 720px) {
+  .splash__art {
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-float);
+    height: min(calc(100dvh - 48px), var(--stage-max-h));
+  }
+}
+
+/* 아래쪽에서 통통 튀는 점 세 개. 멈춘 화면이 아니라는 신호다 */
+.splash__loader {
+  position: absolute;
+  bottom: max(38px, calc(env(safe-area-inset-bottom) + 28px));
+  display: flex;
+  gap: 8px;
+}
+
+.splash__loader span {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: #e8a33c;
+  box-shadow: 0 1px 2px rgba(122, 94, 68, 0.25);
+  animation: dots 1.2s ease-in-out infinite;
+}
+
+.splash__loader span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.splash__loader span:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+/* ── 온보딩 ─────────────────────────────────────── */
+
+.onboard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  height: 100%;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+.onboard__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-top: 6px;
+}
+
+.field {
+  width: 100%;
+}
+
+.field__label {
+  display: block;
+  margin: 0 0 8px 4px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+.text-input {
+  width: 100%;
+  min-height: 58px;
+  padding: 0 18px;
+  border-radius: var(--r-md);
+  border: 2px solid var(--line);
+  background: var(--surface);
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 18px;
+  box-shadow: var(--shadow-soft);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.text-input:focus {
+  border-color: var(--coral);
+  box-shadow: 0 0 0 4px var(--coral-tint);
+}
+
+.lang-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+}
+
+.lang-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 6px;
+  border-radius: var(--r-lg);
+  border: 2px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.lang-card[data-selected='true'] {
+  border-color: var(--coral);
+  background: var(--coral-tint);
+  transform: scale(1.04);
+}
+
+.flag {
+  display: block;
+  border-radius: 4px;
+}
+
+.lang-card__name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/*
+ * 눈에 띄지 않아야 하는 보조 동작 — "처음부터 플레이하기" 같은 것.
+ * 아이가 실수로 누르면 안 되는 자리라 크기와 대비를 모두 낮춘다.
+ */
+.text-link {
+  align-self: center;
+  padding: 10px 14px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink-faint);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.text-link:active {
+  color: var(--ink-soft);
+}
+
+/*
+ * 세계관 소개 — 화면 아무 곳이나 눌러 넘긴다.
+ *
+ * z-index 를 0 으로 두는 것이 중요하다. 이 층은 .scene-content **안에** 들어가는데,
+ * 값을 올리면 뒤따라오는 버튼(.btn 은 position:relative 라 쌓임 맥락을 만든다)을
+ * 덮어버려 "다음"·"건너뛰기" 가 눌리지 않는다. 실제로 그렇게 막혀 있었다.
+ * 0 이면 정적인 배경 위에는 얹히면서 뒤에 오는 버튼에는 밀린다.
+ */
+.tap-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: none;
+}
+
+/* ── 보석을 다 모았을 때 ─────────────────────────── */
+
+/*
+ * 스테이지를 덮는 축하 화면. 아래 홈이 그대로 있고 이 층만 걷힌다 —
+ * 화면을 갈아끼우면 "다른 데로 갔다" 로 읽혀서 돌아온 기분이 사라진다.
+ */
+.unlock {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 0 20px max(20px, env(safe-area-inset-bottom));
+  overflow: hidden;
+  background: radial-gradient(
+    120% 80% at 50% 34%,
+    rgba(255, 250, 236, 0.97) 0%,
+    rgba(255, 241, 226, 0.96) 46%,
+    rgba(253, 232, 233, 0.97) 100%
+  );
+  animation: unlock-in 0.45s ease both;
+}
+
+@keyframes unlock-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 뒤에서 천천히 도는 빛살 — 시선을 가운데로 모은다 */
+.unlock__rays {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  width: 720px;
+  height: 720px;
+  margin: -360px 0 0 -360px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 211, 110, 0.42) 0deg 8deg,
+    transparent 8deg 30deg
+  );
+  opacity: 0;
+  animation: rays-in 0.7s ease 0.75s forwards, spin 14s linear 0.75s infinite;
+  pointer-events: none;
+}
+
+@keyframes rays-in {
+  to {
+    opacity: 0.75;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 가운데의 따뜻한 빛 무리 */
+.unlock__glow {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  width: 340px;
+  height: 340px;
+  margin: -170px 0 0 -170px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 236, 179, 0.9) 0%, rgba(255, 236, 179, 0) 70%);
+  opacity: 0;
+  animation: rays-in 0.6s ease 0.8s forwards;
+  pointer-events: none;
+}
+
+.unlock__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 210px;
+  margin-top: auto;
+}
+
+/* ── 보석이 가운데로 모인다 ─────────────────────── */
+
+.unlock__gems {
+  position: absolute;
+  display: grid;
+  place-items: center;
+}
+
+.unlock__gem {
+  grid-area: 1 / 1;
+  display: block;
+  /* 제자리(--from-x)에서 출발해 가운데로 빨려 들어간다 */
+  animation: gem-gather 0.95s cubic-bezier(0.5, 0, 0.2, 1) var(--delay) both;
+}
+
+@keyframes gem-gather {
+  0% {
+    transform: translate(var(--from-x), 40px) scale(1);
+    opacity: 0;
+  }
+  25% {
+    transform: translate(var(--from-x), 0) scale(1);
+    opacity: 1;
+  }
+  70% {
+    transform: translate(0, 0) scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0) scale(0.2);
+    opacity: 0;
+  }
+}
+
+/* 보석이 모인 자리에서 터지는 빛 */
+.unlock__burst {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 4px solid var(--sunshine);
+  opacity: 0;
+  animation: burst 0.75s cubic-bezier(0.16, 1, 0.3, 1) 1.05s both;
+  pointer-events: none;
+}
+
+@keyframes burst {
+  0% {
+    transform: scale(0.4);
+    opacity: 1;
+    border-width: 12px;
+  }
+  100% {
+    transform: scale(5.4);
+    opacity: 0;
+    border-width: 1px;
+  }
+}
+
+/* 그 자리에 동화책이 남는다 */
+/*
+ * 동화 표지 그림은 투명 배경이 아니라 종이색으로 구워져 있다(투명하게 두면 예전에
+ * 검게 뜨는 문제가 있었다). 그대로 얹으면 축하 화면의 따뜻한 바탕 위에 네모가
+ * 떠 보이므로, 아예 액자에 넣어 의도한 모양으로 만든다.
+ */
+.unlock__book {
+  position: relative;
+  height: 190px;
+  width: auto;
+  border-radius: var(--r-md);
+  border: 5px solid var(--surface);
+  box-shadow: 0 12px 22px rgba(160, 120, 70, 0.3);
+  animation:
+    book-appear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 1.15s both,
+    bob 3.6s ease-in-out 1.75s infinite;
+}
+
+@keyframes book-appear {
+  from {
+    transform: scale(0.3) rotate(-14deg);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* ── 부엉이와 버튼 ──────────────────────────────── */
+
+.unlock__talk {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  animation: rise 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) 1.5s both;
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(46px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.unlock__actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  opacity: 0;
+  transform: translateY(14px);
+  pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+/* 연출이 끝난 뒤에야 누를 수 있다 — 다 보기 전에 넘기면 무엇을 받았는지 못 본다 */
+.unlock__actions[data-ready='true'] {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* ── 잠금이 풀린 동화 버튼 ──────────────────────── */
+
+/*
+ * 축하가 끝난 뒤에도 홈에서 이 버튼이 눈에 띄어야 한다.
+ * 빛이 한 번씩 스쳐 지나가게 해서 "여기 새로 생겼다" 를 계속 알린다.
+ */
+.story-cta[data-unlocked='true'] {
+  position: relative;
+  border-color: var(--grape);
+  box-shadow: var(--shadow-card), 0 0 0 4px rgba(195, 174, 240, 0.22);
+  overflow: hidden;
+}
+
+.story-cta[data-unlocked='true']::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 46%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.75) 50%,
+    transparent 100%
+  );
+  animation: shimmer 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -50%;
+  }
+  55%,
+  100% {
+    left: 120%;
+  }
+}
+
+/* ── 홈 ─────────────────────────────────────────── */
+
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.home__banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: var(--r-lg);
+  background: linear-gradient(135deg, var(--coral-tint) 0%, var(--sunshine-tint) 100%);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.home__banner-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.home__hello {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 21px;
+  line-height: 1.35;
+}
+
+.home__sub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.home__banner-actor {
+  flex: 0 0 auto;
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.scenario-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 10px 10px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 2px solid var(--line);
+  box-shadow: var(--shadow-soft);
+  text-align: left;
+  overflow: hidden;
+  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.15s ease;
+}
+
+.scenario-card:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.scenario-card[data-done='true'] {
+  border-color: var(--mint);
+  background: var(--mint-tint);
+}
+
+.scenario-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.scenario-card__thumb {
+  flex: 0 0 auto;
+  width: 62px;
+  height: 62px;
+  border-radius: var(--r-md);
+  background-size: cover;
+  background-position: center 30%;
+  box-shadow: inset 0 0 0 2px rgba(255, 253, 249, 0.7);
+}
+
+.scenario-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.scenario-card__title {
+  /* span 으로 쓰이는 자리가 있어 block 을 명시한다 — inline 이면 제목과 설명이
+     한 줄에 붙어 "등교하기친구에게 먼저 인사해요" 가 된다 */
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.scenario-card__tag {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.menu-item__title,
+.menu-item__sub {
+  display: block;
+}
+
+.scenario-card__badge {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: var(--ink-faint);
+}
+
+/* 열려 있는 카드의 재생 표시만 색을 준다 — 잠긴 것과 구분된다 */
+.scenario-card:not(:disabled) .scenario-card__badge {
+  color: var(--coral);
+}
+
+.story-cta {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--r-lg);
+  background: linear-gradient(135deg, #fff2f4 0%, #f3ecff 100%);
+  border: 2px solid var(--grape);
+  box-shadow: var(--shadow-card);
+  text-align: left;
+  overflow: hidden;
+}
+
+.story-cta:disabled {
+  opacity: 0.6;
+  border-color: var(--line);
+  background: var(--sand);
+  cursor: not-allowed;
+}
+
+.story-cta:not(:disabled) .scenario-card__badge {
+  color: var(--grape);
+}
+
+.story-cta__book {
+  width: 58px;
+  height: 58px;
+  border-radius: var(--r-md);
+  object-fit: cover;
+}
+
+/* ── 보석 ───────────────────────────────────────── */
+
+/* 오늘 모은 것과 남은 자리를 한 줄로 보여준다 */
+.gem-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* 카드 오른쪽의 상표. 받은 순간 눈에 띄도록 살짝 떠 있게 둔다 */
+.gem-badge {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+/* 완료 화면의 보상 — 한 번 크게 튀어오르고 은은하게 반짝인다 */
+.gem-reward {
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  border-radius: var(--r-pill);
+  background: var(--scrim-strong);
+  box-shadow: var(--shadow-float);
+  animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.gem-reward svg {
+  animation: gem-shine 2.4s ease-in-out infinite;
+}
+
+@keyframes gem-shine {
+  0%,
+  100% {
+    transform: rotate(-4deg) scale(1);
+  }
+  50% {
+    transform: rotate(4deg) scale(1.08);
+  }
+}
+
+/* ── 시나리오 진행 ──────────────────────────────── */
+
+.play-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.stage-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 0;
+  width: 100%;
+}
+
+.actors {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.pill-note {
+  align-self: center;
+  padding: 8px 16px;
+  border-radius: var(--r-pill);
+  background: var(--scrim-strong);
+  box-shadow: var(--shadow-soft);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.error-note {
+  align-self: center;
+  padding: 10px 18px;
+  border-radius: var(--r-pill);
+  background: var(--sunshine-tint);
+  border: 2px solid var(--sunshine);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* ── 수업시간 ───────────────────────────────────── */
+
+/*
+ * 국어책 — 손가락으로 밀어서 넘긴다.
+ *
+ * 그림책 앱(Epic! · Toca Boca · Sago Mini · Endless Reader · Nighty Night ·
+ * Pango · Khan Academy Kids · Lingokids · Duolingo ABC · PBS Kids)이 공통으로
+ * 쓰는 방식이다. 탭으로 한 방향만 넘어가면 지나친 쪽으로 되돌아갈 수가 없어
+ * "찾는다"는 행동 자체가 성립하지 않는다. 밀어서 앞뒤로 갈 수 있어야 한다.
+ */
+.book-stage {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  /* 3D 로 넘기려면 부모에 원근이 있어야 한다 */
+  perspective: 1200px;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.book {
+  position: relative;
+  width: 100%;
+  border-radius: var(--r-md);
+  transform-style: preserve-3d;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  filter: drop-shadow(0 12px 20px rgba(122, 94, 68, 0.28));
+  cursor: grab;
+}
+
+.book:active {
+  cursor: grabbing;
+}
+
+.book img {
+  width: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+/* 넘어가는 순간 종이 한 장이 스쳐 지나간다 */
+.book__sheet {
+  position: absolute;
+  top: 4%;
+  bottom: 6%;
+  width: 46%;
+  background: linear-gradient(90deg, rgba(255, 252, 245, 0.2), rgba(255, 252, 245, 0.96));
+  box-shadow: 0 0 18px rgba(122, 94, 68, 0.28);
+  pointer-events: none;
+  backface-visibility: hidden;
+}
+
+.book__sheet--next {
+  right: 4%;
+  transform-origin: left center;
+  animation: sheet-next 0.34s ease-in forwards;
+}
+
+.book__sheet--prev {
+  left: 4%;
+  transform-origin: right center;
+  animation: sheet-prev 0.34s ease-in forwards;
+}
+
+@keyframes sheet-next {
+  from {
+    transform: rotateY(0deg);
+    opacity: 0.15;
+  }
+  to {
+    transform: rotateY(-165deg);
+    opacity: 0.95;
+  }
+}
+
+@keyframes sheet-prev {
+  from {
+    transform: rotateY(0deg);
+    opacity: 0.15;
+  }
+  to {
+    transform: rotateY(165deg);
+    opacity: 0.95;
+  }
+}
+
+/* 펼쳐진 쪽 번호 — 책 아래쪽 가운데에 놓는다 */
+.book__page-no {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 7%;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.book__page-no b {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.book__page-no span {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* 목표 쪽에 가까워질수록 진해지는 안내 */
+.page-goal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 2px solid var(--line);
+  box-shadow: var(--shadow-soft);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 17px;
+}
+
+.page-goal b {
+  font-size: 24px;
+  color: var(--coral-deep);
+}
+
+.page-goal[data-close='true'] {
+  border-color: var(--coral);
+  background: var(--coral-tint);
+}
+
+/* 좌우 화살표 — 밀지 못하는 아이를 위한 두 번째 길 */
+.book-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.book-nav__btn {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 2px solid var(--line);
+  box-shadow: 0 3px 0 var(--line-strong), var(--shadow-soft);
+  color: var(--ink-soft);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.book-nav__btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--line-strong), var(--shadow-soft);
+}
+
+.book-nav__hint {
+  height: 22px;
+  opacity: 0.75;
+}
+
+/* ── 쪽을 찾았을 때 ─────────────────────────────── */
+
+/*
+ * 찾은 순간은 보상이다. 숫자만 크게 띄우면 결과 통보처럼 보인다 —
+ * 반짝이는 책 그림 위에 쪽 번호를 얹어 "이 책의 이 쪽" 이라는 게 보이게 한다.
+ */
+.found {
+  position: relative;
+  width: 100%;
+  max-width: 330px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.found__book {
+  position: relative;
+  width: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.found img {
+  width: 100%;
+  display: block;
+  filter: drop-shadow(0 10px 18px rgba(122, 94, 68, 0.26));
+  animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/*
+ * 쪽 번호는 책 그림의 **펼쳐진 면 한가운데**에 놓아야 한다.
+ * 그림의 불투명 영역이 세로 7.9%~91.9% 라 가운데는 49.9% — 그 자리에 맞춘다.
+ * 앞서 46% 에 두고 아래에 설명까지 붙였더니 글자가 책 밖으로 흘러나왔다.
+ */
+/*
+ * 가운데 정렬을 transform 으로 하지 않는다.
+ *
+ * 여기에 pop-in 애니메이션이 걸려 있는데, 그 키프레임이 transform 을 직접 지정해
+ * `translateY(-50%)` 를 통째로 덮어쓴다. 그래서 숫자가 정확히 반 글자만큼 아래로
+ * 내려앉아 책 밖으로 흘러나왔다. 정렬은 레이아웃(inset+grid)으로 하고,
+ * 애니메이션은 안쪽 글자에만 건다.
+ */
+.found__no {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+/* 반짝이 선이 숫자를 가로질러 읽기 어렵다. 뒤에 옅은 빛만 깔아 숫자를 띄운다 */
+.found__no::before {
+  content: '';
+  grid-area: 1 / 1;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 253, 249, 0.92) 38%, rgba(255, 253, 249, 0) 72%);
+}
+
+.found__no b {
+  grid-area: 1 / 1;
+}
+
+.found__no b {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 66px;
+  line-height: 1;
+  color: var(--coral-deep);
+  text-shadow: 0 2px 0 var(--cream), 0 0 18px rgba(255, 253, 249, 0.95);
+  animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both;
+}
+
+/* 설명은 책 밖 아래에 따로 둔다 — 안에 함께 넣으면 면을 벗어난다 */
+.found__label {
+  margin-top: 2px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--ink);
+  text-shadow: 0 1px 0 var(--cream), 0 0 12px rgba(255, 253, 249, 0.9);
+}
+
+/* ── 시 읽기 ────────────────────────────────────── */
+
+/*
+ * 시는 그림 위에 얹는다.
+ *
+ * 흰 카드에 글자만 있으면 국어책의 한 쪽이 아니라 안내문처럼 보인다. 시가 말하는
+ * 풍경(햇살·바람·꽃)을 배경으로 깔면 아이가 낱말과 그림을 함께 읽는다.
+ * 글자는 그림의 빈 하늘 쪽(왼쪽 위)에 놓아 토끼와 겹치지 않게 했다.
+ */
+.poem-card {
+  position: relative;
+  width: 100%;
+  max-width: 390px;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  border: 5px solid var(--surface);
+  box-shadow: var(--shadow-card);
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.14s ease;
+}
+
+.poem-card:active {
+  transform: scale(0.985);
+}
+
+/* 하늘이 밝아 글자가 흐려질 수 있다. 왼쪽 위만 아주 옅게 덮는다 */
+.poem-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0.82) 0%,
+    rgba(255, 255, 255, 0.45) 42%,
+    rgba(255, 255, 255, 0) 68%
+  );
+}
+
+.poem-card__text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 2px;
+  padding: 20px 18px;
+  text-align: left;
+}
+
+.poem-card__title {
+  font-family: var(--font-poem);
+  font-weight: 700;
+  font-size: 19px;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.poem-card__line {
+  font-family: var(--font-poem);
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 1.95;
+  color: #33404d;
+  transition: color 0.2s ease, transform 0.2s ease;
+  transform-origin: left center;
+}
+
+.poem-card__line[data-active='true'] {
+  color: var(--coral-deep);
+  transform: scale(1.06);
+}
+
+.poem-card__line[data-target='true'] {
+  background: linear-gradient(transparent 62%, var(--sunshine) 62%);
+  border-radius: 3px;
+}
+
+/* 시 카드를 눌러 들으라는 안내 — 카드 위에 겹쳐 띄운다 */
+.poem-tap {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--r-pill);
+  background: var(--scrim-strong);
+  box-shadow: var(--shadow-soft);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* ── 동화 ───────────────────────────────────────── */
+
+/*
+ * 그림책 한 쪽.
+ *
+ * 그림은 카드 안에서 **한 번만** 보여준다. 배경에도 같은 그림을 깔면 두 겹이 되어
+ * 글자가 그림 위에 뜬 것처럼 보이고, 어느 것이 읽어야 할 글인지 알기 어려워진다.
+ * 바탕은 종이로 비워 두고 그림·글·페이지를 위에서 아래로 쌓는다.
+ */
+.story-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 12px;
+  width: 100%;
+}
+
+/*
+ * 그림 — 종이에 붙인 삽화처럼 매트와 그림자를 준다.
+ *
+ * `cover` 가 아니라 `contain` 이다. 삽화 원본은 정사각(640x640)인데 이 자리는 화면
+ * 높이에 따라 세로로 길어진다. `cover` 로 채우면 그 차이만큼 좌우가 잘려 나가
+ * 인물의 머리나 어깨가 프레임 밖으로 나간다 — "그림이 잘렸다"로 읽히는 지점이다.
+ * `contain` 은 어떤 비율에서도 그림 전체를 보여주고, 남는 자리는 크림색 매트가 된다.
+ */
+.story-illust {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: var(--r-lg);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-color: var(--cream-deep);
+  border: 5px solid var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+/* 매트 안쪽에 옅은 테두리 — 그림과 여백의 경계를 만들어 액자처럼 보이게 한다 */
+.story-illust::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--r-lg) - 5px);
+  box-shadow: inset 0 0 0 1px rgba(122, 94, 68, 0.12);
+}
+
+.story-text {
+  flex: 0 0 auto;
+  padding: 16px 18px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 2px solid var(--line);
+  box-shadow: var(--shadow-soft);
+}
+
+.story-text__subtitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 19px;
+  color: var(--coral-deep);
+}
+
+/* 장면 번호 — 몇 번째 쪽인지 그림책처럼 표시한다 */
+.story-text__no {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-pill);
+  background: var(--coral-tint);
+  color: var(--coral-deep);
+  font-size: 14px;
+}
+
+.story-text__body {
+  font-family: var(--font-story);
+  font-size: 23px;
+  line-height: 1.66;
+  color: var(--ink);
+}
+
+.story-text__quote {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-left: 4px solid var(--coral);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: var(--coral-tint);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--coral-deep);
+}
+
+/* 표지·마지막 쪽은 글이 짧아 가운데로 모은다 */
+.story-text--center {
+  text-align: center;
+}
+
+.story-text--center .story-text__subtitle {
+  justify-content: center;
+  color: var(--ink);
+}
+
+/* ── 메뉴·복습 ──────────────────────────────────── */
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 2px solid var(--line);
+  box-shadow: var(--shadow-soft);
+  text-align: left;
+}
+
+.menu-item:active {
+  transform: scale(0.98);
+}
+
+.menu-item__icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--r-md);
+  background: var(--coral-tint);
+  color: var(--coral-deep);
+}
+
+.menu-item__chevron {
+  color: var(--ink-faint);
+}
+
+.menu-item__title {
+  font-family: var(--font-display);
+  font-size: 17px;
+}
+
+.menu-item__sub {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.review-row {
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 2px solid var(--line);
+  font-family: var(--font-display);
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 4px;
+}
+
+/* ── 켜고 끄는 스위치 ─────────────────────────────
+ *
+ * 메뉴의 다른 줄은 눌러서 다른 화면으로 가고, 이 줄은 그 자리에서 상태가 바뀐다.
+ * 화살표(>) 대신 스위치를 놓아 "여기서 끝나는 조작"이라는 걸 눈으로 구분한다.
+ */
+
+.switch {
+  flex: none;
+  width: 46px;
+  height: 27px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--line);
+  transition: background 0.18s ease;
+}
+
+.switch[data-on='true'] {
+  background: var(--mint-deep);
+}
+
+.switch__knob {
+  display: block;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+  transition: transform 0.18s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.switch[data-on='true'] .switch__knob {
+  transform: translateX(19px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch,
+  .switch__knob {
+    transition: none;
+  }
+}
+
+/*
+ * 스플래시를 눌러 건너뛴다.
+ *
+ * 보이는 것은 없다 — 로딩 화면에 "건너뛰기" 라고 쓰면 첫 화면부터 글자를 읽으라는
+ * 뜻이 된다. 아무 데나 누르면 넘어가고, 안 누르면 알아서 넘어간다.
+ */
+.splash__skip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── 말할 시간 ────────────────────────────────────
+ *
+ * 표현 퀴즈의 "듣고 있어!" 는 마이크를 켜지 않는다. 아이가 소리 내어 말해보는
+ * 자리라, 얼마나 기다려주는지가 보여야 한다 — 안 보이면 자기 차례인 줄 모르고
+ * 지나가고, 그러면 시간을 더 준 것이 아무 소용이 없다.
+ */
+
+.speak-window {
+  width: 190px;
+  height: 15px;
+  margin-top: 16px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 2px solid var(--mint-deep);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.speak-window > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--mint-deep);
+  transform-origin: left center;
+  /* 아직 읽어주는 중에는 가득 찬 채로 기다린다 */
+  transform: scaleX(1);
+}
+
+.speak-window[data-running='true'] > span {
+  animation-name: speak-window-drain;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes speak-window-drain {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speak-window[data-running='true'] > span {
+    /* 움직임을 줄여도 시간이 흐른다는 사실은 남겨야 한다 — 색만 옅어진다 */
+    animation-name: speak-window-fade;
+  }
+  @keyframes speak-window-fade {
+    to {
+      opacity: 0.25;
+    }
+  }
+}

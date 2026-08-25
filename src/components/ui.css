@@ -1,0 +1,718 @@
+/* ─────────────────────────────────────────────────────
+ * 공통 UI 부품.
+ *
+ * 유아용 참조에서 공통으로 가져온 규칙 셋:
+ *  1. 누르는 것은 전부 56px 이상. 손가락이 작고 조준이 부정확하다.
+ *  2. 버튼은 아래쪽에 두꺼운 그림자를 깔아 "눌리는 물체"로 보이게 한다
+ *     (Duolingo ABC·Pinkfong 이 쓰는 방식). 누르면 그만큼 내려앉는다.
+ *  3. 상태 변화는 색이 아니라 크기·움직임으로 먼저 알린다 — 색만 바뀌면
+ *     아이는 무엇이 달라졌는지 모른다.
+ * ───────────────────────────────────────────────────── */
+
+/* ── 아이콘 ──────────────────────────────────────── */
+
+.icon {
+  display: block;
+  flex: 0 0 auto;
+  /* 글자와 나란히 놓일 때 밑줄에 걸치지 않게 한다 */
+  vertical-align: middle;
+}
+
+/* ── 캐릭터 ──────────────────────────────────────── */
+
+.actor {
+  position: relative;
+  display: block;
+  height: auto;
+  /* 그림자를 바닥이 아니라 캐릭터 모양대로 깐다 — 스티커처럼 떠 보인다 */
+  filter: drop-shadow(0 10px 14px rgba(122, 94, 68, 0.22));
+  animation: bob 3.4s ease-in-out infinite;
+  transform-origin: 50% 100%;
+  pointer-events: none;
+}
+
+.actor--enter {
+  animation:
+    pop-in 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    bob 3.4s ease-in-out 0.42s infinite;
+}
+
+.actor--still {
+  animation: none;
+}
+
+/* 상대 캐릭터(호랑이·코끼리·부엉이)는 일러스트라 흔들림을 약하게 준다 */
+.actor--partner {
+  animation-duration: 4.6s;
+}
+
+/*
+ * 상대 캐릭터 그림은 전부 **가슴에서 잘린 흉상**이다(맨 아랫줄이 불투명하다).
+ * 화면 아래에 붙여 쓰라고 만든 그림이라, 공중에 띄우면 잘린 단면이 그대로 드러나
+ * "그림이 깨졌다"로 보인다.
+ *
+ * 그래서 두 가지를 함께 쓴다.
+ *  1) 아래 16%를 서서히 지워 단면을 없앤다
+ *  2) 바로 아래 카드/보기 목록에 살짝 파묻어(음수 마진) 남은 자리를 가린다
+ * 둘 중 하나만으로는 배경에 따라 단면이 비친다.
+ */
+.actor--bust {
+  -webkit-mask-image: linear-gradient(to bottom, #000 84%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 84%, transparent 100%);
+}
+
+/* 캐릭터 줄을 아래 요소에 붙여 세운다 — 공중에 뜨지 않게 */
+.actors--grounded {
+  margin-bottom: -22px;
+  align-items: flex-end;
+}
+
+/*
+ * 말풍선과 말하는 캐릭터를 한 덩어리로 묶는다.
+ *
+ * 따로 두면 말풍선은 화면 위, 캐릭터는 아래에 떨어져 누가 한 말인지 이어지지 않는다.
+ * 붙여 놓아야 꼬리가 캐릭터를 가리키는 것으로 읽힌다.
+ */
+.talk-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+}
+
+/* 말하는 쪽이 오른쪽 캐릭터일 때 — 말풍선도 그쪽으로 붙인다 */
+.talk-group--right {
+  align-items: flex-end;
+}
+
+.talk-group--right .bubble {
+  margin-right: 14px;
+}
+
+/* ── 말풍선 ──────────────────────────────────────── */
+
+.bubble {
+  position: relative;
+  max-width: 300px;
+  padding: 14px 18px;
+  border-radius: 22px;
+  background: var(--surface);
+  border: 2px solid var(--line);
+  box-shadow: var(--shadow-card);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 1.5;
+  text-align: center;
+  white-space: pre-line;
+  animation: pop-in 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.bubble::after,
+.bubble::before {
+  content: '';
+  position: absolute;
+  bottom: -12px;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-left: 11px solid transparent;
+  border-right: 11px solid transparent;
+  border-top: 13px solid var(--line);
+  transform: translateX(-50%);
+}
+
+.bubble::after {
+  bottom: -9px;
+  border-top-color: var(--surface);
+}
+
+.bubble__speaker {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+}
+
+/* ── 말하는 중 표시 ──────────────────────────────
+ *
+ * 말풍선은 저절로 읽힌다. 그 소리가 **이 말풍선**의 것이라는 걸 보여주지 않으면
+ * 어디선가 목소리가 나는 것으로만 들린다 — 글자를 못 읽는 아이에게는 소리와 글자를
+ * 이어주는 유일한 단서다. 누르는 버튼이 아니라 알리는 표시다.
+ */
+
+.bubble__sound {
+  position: absolute;
+  top: -10px;
+  right: -4px;
+  display: none;
+  align-items: flex-end;
+  gap: 2px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 2px solid;
+  border-color: inherit;
+  box-shadow: var(--shadow-card);
+}
+
+.bubble[data-speaking] .bubble__sound {
+  display: inline-flex;
+}
+
+/* 가운데가 높은 좌우 대칭. 셋을 같은 폭으로 오르내리면 멈춘 순간
+   전파 세기 막대처럼 한쪽으로 기울어 보인다. */
+.bubble__sound i {
+  width: 3px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--ink-soft);
+  animation: sound-wave-side 0.72s ease-in-out infinite;
+}
+.bubble__sound i:nth-child(2) {
+  animation-name: sound-wave-mid;
+  animation-delay: 0.24s;
+}
+.bubble__sound i:nth-child(3) {
+  animation-delay: 0.48s;
+}
+
+@keyframes sound-wave-side {
+  0%,
+  100% {
+    height: 5px;
+  }
+  50% {
+    height: 11px;
+  }
+}
+
+@keyframes sound-wave-mid {
+  0%,
+  100% {
+    height: 8px;
+  }
+  50% {
+    height: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble__sound i {
+    animation: none;
+    height: 8px;
+  }
+  .bubble__sound i:nth-child(2) {
+    height: 13px;
+  }
+}
+
+.bubble--tail-left::before,
+.bubble--tail-left::after {
+  left: 34px;
+  transform: none;
+}
+
+.bubble--teacher {
+  border-color: var(--mint-deep);
+  background: var(--mint-tint);
+}
+.bubble--teacher::before {
+  border-top-color: var(--mint-deep);
+}
+.bubble--teacher::after {
+  border-top-color: var(--mint-tint);
+}
+
+.bubble--partner {
+  border-color: var(--sky-deep);
+  background: var(--sky-tint);
+}
+.bubble--partner::before {
+  border-top-color: var(--sky-deep);
+}
+.bubble--partner::after {
+  border-top-color: var(--sky-tint);
+}
+
+/* ── 버튼 ────────────────────────────────────────── */
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 58px;
+  padding: 0 20px;
+  border-radius: var(--r-md);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.01em;
+  /* 라벨이 두 줄로 갈라지면 "선택해보 / 기" 처럼 낱말이 끊긴다.
+     좁아지면 줄을 나누지 말고 글자를 줄인다 */
+  white-space: nowrap;
+  color: var(--on-dark);
+  background: var(--coral);
+  box-shadow: 0 5px 0 var(--coral-shadow), var(--shadow-soft);
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease,
+    filter 0.15s ease;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--coral-shadow), var(--shadow-soft);
+}
+
+.btn:disabled {
+  background: var(--line-strong);
+  box-shadow: 0 5px 0 #c9b9a3;
+  color: #fffdf9;
+  cursor: not-allowed;
+}
+
+.btn--mint {
+  background: var(--mint);
+  box-shadow: 0 5px 0 var(--mint-deep), var(--shadow-soft);
+}
+.btn--mint:active:not(:disabled) {
+  box-shadow: 0 1px 0 var(--mint-deep), var(--shadow-soft);
+}
+
+.btn--sky {
+  background: var(--sky-deep);
+  box-shadow: 0 5px 0 #5a9dcd, var(--shadow-soft);
+}
+.btn--sky:active:not(:disabled) {
+  box-shadow: 0 1px 0 #5a9dcd, var(--shadow-soft);
+}
+
+.btn--ghost {
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 5px 0 var(--line-strong), var(--shadow-soft);
+}
+.btn--ghost:active:not(:disabled) {
+  box-shadow: 0 1px 0 var(--line-strong), var(--shadow-soft);
+}
+
+.row .btn {
+  padding: 0 12px;
+  font-size: 17px;
+}
+
+.btn__icon {
+  font-size: 21px;
+  line-height: 1;
+}
+
+/* ── 선택지 ──────────────────────────────────────── */
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  /* 읽어야 할 문장이라 글자를 키웠다. 두 줄이 되어도 카드가 늘어나게 둔다 */
+  min-height: 78px;
+  padding: 14px 18px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 2px solid var(--line);
+  box-shadow: var(--shadow-soft);
+  text-align: left;
+  transition:
+    transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1),
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.choice:active {
+  transform: scale(0.97);
+}
+
+.choice[data-selected='true'] {
+  border-color: var(--coral);
+  background: var(--coral-tint);
+  transform: scale(1.02);
+}
+
+.choice__num {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-pill);
+  background: var(--sand);
+  color: var(--ink-soft);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.choice[data-selected='true'] .choice__num {
+  background: var(--coral);
+  color: var(--on-dark);
+}
+
+.choice__text {
+  font-family: var(--font-display);
+  font-weight: 600;
+  /* 아이가 소리 내어 읽을 문장이다. 본문 크기로는 작다 */
+  font-size: 20px;
+  line-height: 1.45;
+}
+
+/* ── 문장 상자 (🔊 탭해서 듣기) ──────────────────── */
+
+.sentence-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 2px dashed var(--coral);
+  box-shadow: var(--shadow-card);
+  text-align: left;
+  transition: transform 0.12s ease, background 0.15s ease;
+}
+
+.sentence-box:active {
+  transform: scale(0.98);
+}
+
+.sentence-box[data-playing='true'] {
+  background: var(--coral-tint);
+  border-style: solid;
+}
+
+.sentence-box__text {
+  flex: 1;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+.sentence-box__mark {
+  /* 짚어주는 어절. 글자를 빨갛게 칠하지 않고 밑에 형광펜을 긋는다 —
+     빨간 글씨는 아이에게 "틀렸다"로 읽힌다 */
+  background: linear-gradient(transparent 62%, var(--sunshine) 62%);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.speaker-chip {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-pill);
+  background: var(--coral-tint);
+  font-size: 22px;
+}
+
+.speaker-chip[data-playing='true'] {
+  animation: sparkle 0.9s ease-in-out infinite;
+}
+
+/* ── 마이크 ──────────────────────────────────────── */
+
+/*
+ * 녹음 버튼.
+ *
+ * 음성 녹음 UI 레퍼런스(iOS 음성 메모 · Google 녹음기 · WhatsApp 음성 · Otter ·
+ * Duolingo · Anchor · Discord 푸시투토크 · Krisp · Speechify · Zoom)에서 공통으로
+ * 쓰는 세 가지를 가져왔다.
+ *   1. 누르는 원은 크게, 그 둘레에 여백을 둔다 — 조준이 부정확해도 눌린다
+ *   2. 녹음 중에는 **아이콘이 아니라 소리 크기**를 보여준다. 마이크 그림은 멈춰
+ *      있어서 "듣고 있는지" 알 수 없다. 막대가 목소리에 맞춰 움직여야 안다
+ *   3. 시간 제한이 있으면 남은 시간을 원 둘레로 보여준다 — 30초에 끊기는데
+ *      아무 예고가 없으면 아이는 말이 잘렸다고 느낀다
+ */
+
+.mic-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.mic-shell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 124px;
+  height: 124px;
+}
+
+.mic {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 100px;
+  height: 100px;
+  border-radius: var(--r-pill);
+  /* 위쪽이 밝은 그러데이션 — 평평한 원보다 눌러보고 싶게 만든다 */
+  background: radial-gradient(120% 120% at 50% 12%, #ffc2c8 0%, var(--coral) 58%, #e88e98 100%);
+  box-shadow:
+    0 8px 0 var(--coral-shadow),
+    0 12px 24px rgba(201, 107, 118, 0.34),
+    inset 0 2px 0 rgba(255, 255, 255, 0.6);
+  color: var(--on-dark);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.2s ease;
+}
+
+.mic:active:not(:disabled) {
+  transform: translateY(5px);
+  box-shadow:
+    0 3px 0 var(--coral-shadow),
+    0 6px 12px rgba(201, 107, 118, 0.3),
+    inset 0 2px 0 rgba(255, 255, 255, 0.5);
+}
+
+.mic:disabled {
+  background: var(--line-strong);
+  box-shadow: 0 8px 0 #c9b9a3, inset 0 2px 0 rgba(255, 255, 255, 0.4);
+}
+
+.mic[data-recording='true'] {
+  background: radial-gradient(120% 120% at 50% 12%, #ffb0b8 0%, #ef7f8d 58%, #d9606f 100%);
+}
+
+/* 30초 한도 — 둘레가 줄어드는 것으로 남은 시간을 보여준다 */
+.mic__ring-track,
+.mic__ring-value {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  transform: rotate(-90deg);
+}
+
+.mic__ring-track circle {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 5;
+}
+
+.mic__ring-value circle {
+  fill: none;
+  stroke: var(--sunshine);
+  stroke-width: 5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.2s linear;
+}
+
+/* 녹음 중 퍼져나가는 물결 — "지금 듣고 있다"는 신호다 */
+.mic__pulse {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border-radius: var(--r-pill);
+  border: 3px solid var(--coral);
+  animation: pulse-ring 1.8s ease-out infinite;
+  pointer-events: none;
+}
+
+.mic__pulse--delay {
+  animation-delay: 0.9s;
+}
+
+/* 소리 크기에 따라 커지는 후광 */
+.mic__halo {
+  position: absolute;
+  width: 124px;
+  height: 124px;
+  border-radius: var(--r-pill);
+  background: radial-gradient(circle, rgba(242, 160, 168, 0.45) 0%, rgba(242, 160, 168, 0) 68%);
+  pointer-events: none;
+  transition: transform 0.08s linear;
+}
+
+/* 목소리에 맞춰 움직이는 막대 — 녹음 중에는 마이크 그림 대신 이걸 보여준다 */
+.mic__wave {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 40px;
+}
+
+.mic__wave i {
+  display: block;
+  width: 6px;
+  border-radius: var(--r-pill);
+  background: var(--on-dark);
+  box-shadow: 0 1px 2px rgba(160, 80, 90, 0.35);
+  transition: height 0.09s ease-out;
+}
+
+.mic-hint {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink-soft);
+  text-shadow: 0 1px 0 var(--cream), 0 0 10px rgba(255, 253, 249, 0.9);
+}
+
+/* ── 진행 점 ─────────────────────────────────────── */
+
+.dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.dots__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--r-pill);
+  background: var(--line-strong);
+  transition: width 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease;
+}
+
+.dots__dot[data-active='true'] {
+  width: 26px;
+  background: var(--coral);
+}
+
+.dots__dot[data-done='true'] {
+  background: var(--coral-deep);
+}
+
+/* ── 상단바 ─────────────────────────────────────── */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  flex: 0 0 auto;
+}
+
+.topbar__btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-pill);
+  background: var(--scrim);
+  box-shadow: var(--shadow-soft);
+  font-size: 19px;
+  transition: transform 0.1s ease;
+}
+
+.topbar__btn:active {
+  transform: scale(0.92);
+}
+
+.topbar__title {
+  flex: 1;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  text-align: center;
+}
+
+/* ── 생각 중 점 ──────────────────────────────────── */
+
+.thinking {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.thinking span {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--r-pill);
+  background: var(--coral);
+  animation: dots 1.3s ease-in-out infinite;
+}
+
+.thinking span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.thinking span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* ── 빈칸 퀴즈 ───────────────────────────────────── */
+
+.blank-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 8px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1.5;
+}
+
+.blank-slot {
+  display: inline-grid;
+  place-items: center;
+  min-width: 92px;
+  height: 44px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  border: 3px dashed var(--coral);
+  background: var(--surface);
+  color: var(--coral-deep);
+  transition: background 0.2s ease, border-style 0.2s ease;
+}
+
+.blank-slot[data-filled='true'] {
+  border-style: solid;
+  background: var(--sunshine-tint);
+  animation: pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ── 반짝이 (성공 연출) ──────────────────────────── */
+
+.confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.confetti i {
+  position: absolute;
+  top: -8%;
+  width: 10px;
+  height: 14px;
+  border-radius: 3px;
+  opacity: 0.95;
+  animation: fall linear forwards;
+}
+
+@keyframes fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(115vh) rotate(720deg);
+    opacity: 0.9;
+  }
+}
