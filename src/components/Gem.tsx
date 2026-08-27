@@ -13,10 +13,26 @@ export function Gem({
   size = 22,
   /** 아직 못 받은 자리. 테두리만 남긴다 */
   empty = false,
+  /**
+   * 그림이나 밝은 면 위에 홀로 얹힐 때. 몸통 바깥에만 어두운 테두리를 두른다.
+   *
+   * 완료 배경 네 장은 보석이 지나가는 위쪽이 전부 밝다(하늘·크림 벽). 게다가 그
+   * 위에 크림 베일까지 덮여 있어 더 밝아진다. 흰 테두리는 거기서 1.02~1.14:1 로
+   * 증발하고, 급식 보석은 몸통(#FFD36E)마저 배경과 1.2:1 이라 형체가 사라진다.
+   * 어두운 잉크색은 네 배경 모두에서 8:1 을 넘긴다.
+   *
+   * 배경 그림의 고양이·풍선·튤립도 전부 따뜻한 갈색 외곽선으로 그려져 있다 —
+   * 어두운 테두리는 대비를 위한 타협이 아니라 그림의 화법과 같아지는 선택이다.
+   *
+   * `paint-order: stroke` 는 칠을 선 위에 덮어 **바깥쪽 절반만** 남긴다.
+   * 필터가 아니라 기하라 블러 패스가 없다.
+   */
+  outlined = false,
 }: {
   colors: { light: string; base: string; deep: string };
   size?: number;
   empty?: boolean;
+  outlined?: boolean;
 }) {
   if (empty) {
     return (
@@ -24,7 +40,7 @@ export function Gem({
         <path
           d="M7 3h10l4 6-9 12L3 9z"
           fill="none"
-          stroke="var(--line-strong)"
+          style={{ stroke: 'var(--line-strong)' }}
           strokeWidth="1.6"
           strokeLinejoin="round"
           strokeDasharray="2.5 2.5"
@@ -36,7 +52,13 @@ export function Gem({
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable="false">
       {/* 아래로 갈수록 어두워지는 몸통 — 깎인 돌처럼 보이게 한다 */}
-      <path d="M7 3h10l4 6-9 12L3 9z" fill={colors.base} />
+      <path
+        d="M7 3h10l4 6-9 12L3 9z"
+        fill={colors.base}
+        strokeWidth={outlined ? 1.3 : undefined}
+        strokeLinejoin="round"
+        style={outlined ? { stroke: 'var(--ink)', paintOrder: 'stroke' } : undefined}
+      />
       {/* 왼쪽 위 큰 면: 빛을 받는 쪽 */}
       <path d="M7 3h5l-1.5 6H3z" fill={colors.light} />
       {/* 오른쪽 위 면: 그늘 */}

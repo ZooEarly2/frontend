@@ -1041,35 +1041,206 @@
   box-shadow: var(--shadow-soft);
 }
 
-/* 완료 화면의 보상 — 한 번 크게 튀어오르고 은은하게 반짝인다 */
+/* ── 완료 화면의 보상 ───────────────────────────── */
+
+/*
+ * 시나리오 하나를 마치면 보석 하나가 떠올랐다 사라진다.
+ *
+ * 예전에는 92px 흰 원판이 흐름 안(카드 바로 위)에 있었다. 그래서 화면 한복판,
+ * 즉 배경 그림 속 고양이 얼굴 위에 얹혔다. 흐름 안에서는 위쪽에 앉힐 방법이
+ * 없어 절대 배치로 빼냈다.
+ *
+ * 기준이 `.scene-body` 인 이유가 있다. 화면 비율(17% 같은 것)로 잡으면 노치가
+ * 있는 기기에서 `.scene-content` 의 위 패딩이 커지며 진행 점이 내려오는데,
+ * 절대 배치의 기준은 패딩 박스라 보석은 그대로 있어 서로 덮는다.
+ * `.scene-body` 는 항상 진행 점 바로 아래에서 시작하므로 무엇이 바뀌든 따라간다.
+ *
+ * 상자에 실제 크기를 주고 음수 마진으로 중심을 맞춘다. `width: 0` 에
+ * `place-items: center` 를 걸면 가운데로 오지 않는다 — 그리드 트랙이 가장 큰
+ * 자식(빛무리 188px)에 맞춰 잡히고, 0px 상자의 좌상단에서 오른쪽·아래로
+ * 넘쳐서 보석이 94px 씩 밀린다.
+ */
 .gem-reward {
+  position: absolute;
+  left: 50%;
+  top: 96px;
   display: grid;
   place-items: center;
-  width: 92px;
-  height: 92px;
-  border-radius: var(--r-pill);
-  background: var(--scrim-strong);
-  box-shadow: var(--shadow-float);
-  animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  width: 188px;
+  height: 188px;
+  margin: -94px 0 0 -94px;
+  pointer-events: none;
+  z-index: 2;
 }
 
-.gem-reward svg {
-  animation: gem-shine 2.4s ease-in-out infinite;
+.gem-reward__halo {
+  grid-area: 1 / 1;
+  width: 188px;
+  height: 188px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.8) 0%,
+    rgba(255, 236, 179, 0.5) 38%,
+    rgba(255, 236, 179, 0) 70%
+  );
+  opacity: 0;
+  transform: scale(0.5);
+  animation: gem-halo 1700ms linear both;
 }
 
-@keyframes gem-shine {
-  0%,
-  100% {
-    transform: rotate(-4deg) scale(1);
+.gem-reward__gem {
+  grid-area: 1 / 1;
+  display: block;
+  line-height: 0;
+  opacity: 0;
+  /* 그림 위에 홀로 뜨는 물체라, 테두리에 더해 아주 옅은 그림자로 한 겹 더 뗀다 */
+  filter: drop-shadow(0 3px 6px rgba(122, 94, 68, 0.28));
+  animation: gem-rise 1700ms linear both;
+}
+
+/*
+ * 등장 → 오버슈트 → 안착 → **정지 493ms** → 떠오르며 스러짐.
+ *
+ * 정지 구간이 이 연출의 요점이다. 등장하자마자 떠나면 "받았다" 가 아니라
+ * "지나갔다" 가 된다. 만 5~8세가 무엇을 받았는지 눈으로 잡는 데 그만큼 걸린다.
+ *
+ * 올라가는 거리를 52px 로 묶었다. 96px 로 보내면 76% 시점(아직 불투명하다)에
+ * 진행 점과 시나리오 제목을 정면으로 관통한다 — 완료 화면의 상단은 비어 있지
+ * 않다. 불투명도도 60% 부터 빼기 시작해 그 언저리에서 이미 흐릿하다.
+ */
+@keyframes gem-rise {
+  0% {
+    transform: translate3d(0, 14px, 0) scale(0.5);
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.2, 0, 0.1, 1);
   }
-  50% {
-    transform: rotate(4deg) scale(1.08);
+  4% {
+    opacity: 1;
+  }
+  11% {
+    transform: translate3d(0, 0, 0) scale(1.12);
+    animation-timing-function: cubic-bezier(0.33, 0, 0.2, 1);
+  }
+  18% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+    animation-timing-function: linear;
+  }
+  47% {
+    transform: translate3d(0, -6px, 0) scale(1);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.5, 0, 0.75, 0.4);
+  }
+  60% {
+    opacity: 0.92;
+  }
+  100% {
+    transform: translate3d(-8px, -52px, 0) scale(0.6);
+    opacity: 0;
+  }
+}
+
+@keyframes gem-halo {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  16% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  47% {
+    opacity: 0.75;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+
+/*
+ * 큰 보석이 떠난 자리에 남는 네 칸. 방금 받은 칸만 뒤늦게 채워진다 —
+ * 보석이 스러지기 시작할 무렵이라 "저기로 옮겨 갔다" 로 읽힌다.
+ */
+.gem-track--kept {
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.gem-track--kept span {
+  display: block;
+  line-height: 0;
+}
+
+.gem-track--kept span[data-new='true'] {
+  transform: scale(0.4);
+  opacity: 0;
+  animation: gem-kept-in 300ms cubic-bezier(0.34, 1.4, 0.64, 1) 1300ms forwards;
+}
+
+@keyframes gem-kept-in {
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/*
+ * 이 카드만 배경 블러를 끈다.
+ *
+ * `.card` 에는 `backdrop-filter: blur(6px)` 이 걸려 있는데, 그 요소가 화면에
+ * 있는 동안 위에서 보석이 움직이면 매 프레임 뒤를 다시 샘플링해 다시 블러한다.
+ * 바탕색 알파가 0.97 이라 뒤가 3% 만 비치는데 그걸 블러하고 있는 것이라,
+ * 꺼도 눈에 보이는 손해가 사실상 없다.
+ */
+.gem-reward-card {
+  backdrop-filter: none;
+}
+
+/*
+ * 움직임을 줄여 달라고 한 기기.
+ *
+ * 보상을 지우지 않는다 — 전역 킬스위치는 모든 애니메이션을 0.001ms 로 만드는데,
+ * 그러면 보석은 마지막 키프레임(opacity 0)으로 점프해 **아예 안 보인다.**
+ * 여기서 되돌려, 움직임 없이 제자리에 또렷이 남긴다. 빛무리는 아예 끈다 —
+ * 남겨 두면 화면 상단에 크림 얼룩이 고정으로 붙는다.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .gem-reward__halo {
+    display: none !important;
+  }
+
+  .gem-reward__gem {
+    opacity: 1;
+    animation: gem-rm-in 300ms ease both !important;
+  }
+
+  .gem-track--kept span[data-new='true'] {
+    transform: none;
+    animation: gem-rm-in 300ms ease 400ms both !important;
+  }
+
+  @keyframes gem-rm-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }
 
 /* ── 시나리오 진행 ──────────────────────────────── */
 
+/*
+ * 진행 점과 제목이 보석보다 위에 그려지게 한다. 보석이 떠오르며 이 근처를
+ * 지나는데, static 이면 z-index 를 가진 보석이 무조건 그 위에 얹힌다.
+ */
 .play-head {
+  position: relative;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   gap: 10px;

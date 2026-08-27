@@ -14,12 +14,12 @@ import {
   Thinking,
   TopBar,
 } from '@/components';
-import { Gem } from '@/components/Gem';
+import { GemKept, GemReward } from '@/components/GemReward';
 import { Icon } from '@/components/Icon';
 import { Stage } from '@/components/Stage';
 import { announce, speakLines, stopSpeaking } from '@/audio/speaker';
 import { useRecorder } from '@/audio/useRecorder';
-import { CATEGORY_GEM, CLASS, randomPage, randomPoem } from '@/scenarios/data';
+import { CLASS, randomPage, randomPoem } from '@/scenarios/data';
 import { useAppState } from '@/store/appState';
 import './screens.css';
 
@@ -79,7 +79,7 @@ type Flip = 'next' | 'prev' | null;
 
 export function ClassPlay() {
   const navigate = useNavigate();
-  const { completeCategory } = useAppState();
+  const { completeCategory, isCompleted } = useAppState();
 
   const [step, setStep] = useState<Step>('INTRO');
   // 회차마다 다른 쪽 번호를 한 번만 뽑아 끝까지 같은 값을 쓴다.
@@ -360,7 +360,7 @@ export function ClassPlay() {
         <ProgressDots total={4} index={DOT[step]} />
       </div>
 
-      {step === 'COMPLETE' || step === 'FIND_PAGE_DONE' ? <Confetti /> : null}
+      {step === 'FIND_PAGE_DONE' ? <Confetti /> : null}
 
       <div className="scene-body">
         {step === 'INTRO' && (
@@ -613,16 +613,18 @@ export function ClassPlay() {
 
         {step === 'COMPLETE' && (
           <>
+            {/* 따라 말하기 세 화면과 같은 보상이다 — 하루 네 번이 다르면 안 된다 */}
+            <GemReward category="CLASS" />
+            <Confetti key="complete" pieces={16} startMs={120} />
+
             <div className="stage-center">
               <div className="spacer" />
-              <div className="gem-reward">
-                <Gem colors={CATEGORY_GEM.CLASS} size={56} />
-              </div>
-              <div className="card" style={{ width: '100%' }}>
+              <div className="card gem-reward-card" style={{ width: '100%' }}>
                 <p className="title">수업시간 완료!</p>
                 <p className="lead" style={{ marginTop: 6 }}>
                   보석을 하나 받았어요! 동시를 멋지게 읽었어요.
                 </p>
+                <GemKept category="CLASS" isCompleted={isCompleted} />
               </div>
             </div>
             <div className="scene-footer">

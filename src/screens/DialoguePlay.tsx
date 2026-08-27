@@ -17,7 +17,7 @@ import {
   Thinking,
   TopBar,
 } from '@/components';
-import { Gem } from '@/components/Gem';
+import { GemKept, GemReward } from '@/components/GemReward';
 import { Icon } from '@/components/Icon';
 import { Stage } from '@/components/Stage';
 import {
@@ -29,7 +29,7 @@ import {
   whenNarrationDone,
 } from '@/audio/speaker';
 import { useRecorder } from '@/audio/useRecorder';
-import { CATEGORY_GEM, DIALOGUE_SCENARIOS } from '@/scenarios/data';
+import { DIALOGUE_SCENARIOS } from '@/scenarios/data';
 import type { CategoryId } from '@/scenarios/types';
 import { useAppState } from '@/store/appState';
 import './screens.css';
@@ -163,7 +163,7 @@ type Chosen = { text: string; sentenceId: string | null };
 export function DialoguePlay() {
   const { category } = useParams<{ category: string }>();
   const navigate = useNavigate();
-  const { completeCategory, profile } = useAppState();
+  const { completeCategory, isCompleted, profile } = useAppState();
 
   const scenario = DIALOGUE_SCENARIOS[category as Exclude<CategoryId, 'CLASS'>];
 
@@ -491,7 +491,7 @@ export function DialoguePlay() {
         <ProgressDots total={4} index={DOT[step]} />
       </div>
 
-      {step === 'PRAISE' || step === 'ANSWER' || step === 'COMPLETE' ? <Confetti /> : null}
+      {step === 'PRAISE' || step === 'ANSWER' ? <Confetti /> : null}
 
       <div className="scene-body">
         {step === 'INTRO' && (
@@ -780,18 +780,27 @@ export function DialoguePlay() {
 
         {step === 'COMPLETE' && (
           <>
+            {/*
+              보석은 흐름 밖이다. 완료 배경 네 장 모두 고양이 머리가 화면 38%
+              아래에서 시작하고 그 위는 비어 있다. 예전에는 흰 원판이 흐름 안,
+              즉 화면 한복판에 있어서 고양이 얼굴을 덮었다.
+            */}
+            <GemReward category={scenario.id} />
+            {/* 완료에서만 새로 뿌린다. key 가 없으면 ANSWER 에서 넘어올 때
+                React 가 같은 요소를 재사용해 출발 시각이 무시된다 */}
+            <Confetti key="complete" pieces={16} startMs={120} />
+
             <div className="stage-center">
               {/* 완료 배경은 아이가 해낸 장면을 그린 축하 그림이다. 그 위에 글자만
                   얹으면 밝은 부분에서 안 읽혀, 카드에 담아 아래쪽에 놓는다 */}
               <div className="spacer" />
-              <div className="gem-reward">
-                <Gem colors={CATEGORY_GEM[scenario.id]} size={56} />
-              </div>
-              <div className="card" style={{ width: '100%' }}>
+              <div className="card gem-reward-card" style={{ width: '100%' }}>
                 <p className="title">{scenario.completeTitle}</p>
                 <p className="lead" style={{ marginTop: 6 }}>
                   보석을 하나 받았어요! {scenario.completeHint}
                 </p>
+                {/* 큰 보석은 떠나고 여기 남는다 */}
+                <GemKept category={scenario.id} isCompleted={isCompleted} />
               </div>
             </div>
             <div className="scene-footer">

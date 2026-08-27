@@ -224,7 +224,13 @@ img {
   padding: max(16px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
 }
 
+/*
+ * 완료 화면의 보석이 여기를 기준으로 앉는다. 화면 비율로 잡으면 노치가 있는
+ * 기기에서 위 패딩이 커지며 진행 점이 내려오는데, 절대 배치의 기준은 패딩
+ * 박스라 보석은 그대로 있어 서로 덮는다.
+ */
 .scene-body {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
