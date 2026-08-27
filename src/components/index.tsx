@@ -16,6 +16,31 @@ import './ui.css';
 export type Pose = 'hello' | 'speak' | 'happy' | 'sad' | 'cheer';
 export type Who = 'me' | 'teacher';
 
+/**
+ * 그림 경로를 표로 적어 둔다. `/characters/${who}-${pose}.png` 로 조합하면 안 된다.
+ *
+ * 빌드가 그림 파일 이름에 내용 해시를 붙이는데(캐시가 안 깨지는 것을 막으려고),
+ * 조합해서 만든 경로는 번들 안에 글자 그대로 있지 않아 **같이 못 고친다.**
+ * 그러면 파일은 이름이 바뀌었는데 앱은 옛 이름을 부르므로 그림이 통째로 깨진다.
+ * 열 장뿐이니 적어 두는 편이 낫다.
+ */
+const CHARACTER: Record<Who, Record<Pose, string>> = {
+  me: {
+    hello: '/characters/me-hello.png',
+    speak: '/characters/me-speak.png',
+    happy: '/characters/me-happy.png',
+    sad: '/characters/me-sad.png',
+    cheer: '/characters/me-cheer.png',
+  },
+  teacher: {
+    hello: '/characters/teacher-hello.png',
+    speak: '/characters/teacher-speak.png',
+    happy: '/characters/teacher-happy.png',
+    sad: '/characters/teacher-sad.png',
+    cheer: '/characters/teacher-cheer.png',
+  },
+};
+
 type CharacterProps = {
   who: Who;
   pose: Pose;
@@ -39,7 +64,7 @@ export function Character({
   return (
     <img
       key={`${who}-${pose}`}
-      src={`/characters/${who}-${pose}.png`}
+      src={CHARACTER[who][pose]}
       alt=""
       aria-hidden
       className={`actor actor--enter ${still ? 'actor--still' : ''} ${className}`}

@@ -12,8 +12,6 @@ import type { CategoryId, ClassPoem, ClassScenario, DialogueScenario } from './t
  * 서버라서, 앱이 들고 있는 문구와 어긋나면 화면과 채점이 달라진다.
  */
 
-const S = '/scenes';
-
 export const ARRIVAL: DialogueScenario = {
   id: 'ARRIVAL',
   title: '등교하기',
@@ -24,12 +22,12 @@ export const ARRIVAL: DialogueScenario = {
     // 원본 bg_arrival_intro 에는 분홍 원피스 토끼가 한가운데 서 있었다.
     // 그 위에 호랑이 친구의 말풍선을 띄우니 토끼가 말하는 것처럼 읽혔다 —
     // 배경에서 인물을 지운 빈 거리로 바꾸고, 말하는 캐릭터는 직접 세운다.
-    intro: `${S}/arrival/bg_arrival_street.png`,
-    talk: `${S}/arrival/bg_arrival_street.png`,
-    repeat: `${S}/arrival/bg_arrival_street.png`,
-    complete: `${S}/arrival/bg_arrival_complete2.webp`,
+    intro: '/scenes/arrival/bg_arrival_street.png',
+    talk: '/scenes/arrival/bg_arrival_street.png',
+    repeat: '/scenes/arrival/bg_arrival_street.png',
+    complete: '/scenes/arrival/bg_arrival_complete2.webp',
   },
-  partner: { name: '호랑이 친구', image: `${S}/arrival/img_arrival_tiger.png`, voice: 'FRIEND' },
+  partner: { name: '호랑이 친구', image: '/scenes/arrival/img_arrival_tiger.png', voice: 'FRIEND' },
   intro: { situation: '학교 앞이에요.\n친구를 만났어요!', prompt: '어떻게 인사해 볼까요?' },
   partnerLine: '안녕! 만나서 반가워.',
   speakPrompt: '마이크를 누르고\n인사해 보세요!',
@@ -56,14 +54,14 @@ export const LUNCH: DialogueScenario = {
   sentenceCategory: 'lunch',
   storyCategory: 'lunch',
   scenes: {
-    intro: `${S}/lunch/bg_lunch_intro.png`,
-    talk: `${S}/lunch/bg_lunch_question.png`,
-    repeat: `${S}/lunch/bg_lunch_question.png`,
-    complete: `${S}/lunch/bg_lunch_complete2.webp`,
+    intro: '/scenes/lunch/bg_lunch_intro.png',
+    talk: '/scenes/lunch/bg_lunch_question.png',
+    repeat: '/scenes/lunch/bg_lunch_question.png',
+    complete: '/scenes/lunch/bg_lunch_complete2.webp',
   },
   // 배경에도 급식 선생님이 그려져 있지만, 인트로에서는 배경을 흐려 뒤로 밀고
   // 이 그림만 또렷하게 세운다 — 말하는 사람이 누구인지 분명해진다.
-  partner: { name: '급식 선생님', image: `${S}/lunch/img_lunch_rabbit_response.png`, voice: 'TEACHER' },
+  partner: { name: '급식 선생님', image: '/scenes/lunch/img_lunch_rabbit_response.png', voice: 'TEACHER' },
   intro: { situation: '점심시간이에요.\n반찬을 받아봐요!', prompt: '얼마나 받을지 말해볼까요?' },
   partnerLine: '불고기 많이 줄까?',
   speakPrompt: '마이크를 누르고\n말해보세요!',
@@ -80,14 +78,14 @@ export const DISMISSAL: DialogueScenario = {
   sentenceCategory: 'departure',
   storyCategory: 'school_departure',
   scenes: {
-    intro: `${S}/dismissal/bg_dismissal_intro.png`,
-    talk: `${S}/dismissal/bg_dismissal_intro.png`,
-    repeat: `${S}/dismissal/bg_dismissal_intro.png`,
-    complete: `${S}/dismissal/bg_dismissal_complete2.webp`,
+    intro: '/scenes/dismissal/bg_dismissal_intro.png',
+    talk: '/scenes/dismissal/bg_dismissal_intro.png',
+    repeat: '/scenes/dismissal/bg_dismissal_intro.png',
+    complete: '/scenes/dismissal/bg_dismissal_complete2.webp',
   },
   partner: {
     name: '코끼리 선생님',
-    image: `${S}/dismissal/img_dismissal_elephant.png`,
+    image: '/scenes/dismissal/img_dismissal_elephant.png',
     voice: 'TEACHER',
   },
   intro: { situation: '하루가 끝났어요.\n집에 갈 시간이에요!', prompt: '어떻게 인사해 볼까요?' },
@@ -114,16 +112,16 @@ export const CLASS: ClassScenario = {
   scenes: {
     // 수업시간 그림만 webp 다. 하늘 계조가 있는 그림이라 PNG 팔레트로 줄이면
     // 얼룩이 남고, 줄이지 않으면 한 장에 700KB 가 넘었다.
-    intro: `${S}/class/bg_class_korean_intro.webp`,
-    find: `${S}/class/bg_class_rabbit_order.webp`,
-    poem: `${S}/class/bg_class_korean_intro.webp`,
-    complete: `${S}/class/bg_class_complete2.webp`,
+    intro: '/scenes/class/bg_class_korean_intro.webp',
+    find: '/scenes/class/bg_class_rabbit_order.webp',
+    poem: '/scenes/class/bg_class_korean_intro.webp',
+    complete: '/scenes/class/bg_class_complete2.webp',
   },
   /** 책 넘기기·시 읽기 화면이 쓰는 그림 */
   props: {
-    book: `${S}/class/img_class_koreanbook.webp`,
-    bookFound: `${S}/class/img_class_bookpage.webp`,
-    swipeHint: `${S}/class/img_class_turn_hint.webp`,
+    book: '/scenes/class/img_class_koreanbook.webp',
+    bookFound: '/scenes/class/img_class_bookpage.webp',
+    swipeHint: '/scenes/class/img_class_turn_hint.webp',
   },
   teacherLine: '국어책 {page}페이지를 펴보자!',
   /*
@@ -139,13 +137,13 @@ export const CLASS: ClassScenario = {
       sentenceId: 'study_1',
       title: '꽃',
       lines: ['노란 꽃이 피었어요', '예쁜 꽃이 피었어요', '바람이 살랑살랑', '꽃이 웃어요.'],
-      scene: `${S}/class/img_class_poem.webp`,
+      scene: '/scenes/class/img_class_poem.webp',
     },
     {
       sentenceId: 'study_2',
       title: '눈',
       lines: ['눈이 와요, 눈이 와요', '하얀 눈이 펑펑 와요', '우리 같이 눈사람 만들어요.'],
-      scene: `${S}/class/img_class_poem_snow.webp`,
+      scene: '/scenes/class/img_class_poem_snow.webp',
       // 눈 그림은 위쪽이 비어 보이지 않는다. 한 줄만큼 내려 얹는다
       textOffset: 22,
     },
@@ -153,7 +151,7 @@ export const CLASS: ClassScenario = {
       sentenceId: 'study_3',
       title: '파도',
       lines: ['파도가 와요, 철썩', '내 발을 만져요', '내가 뒤로 가면', '파도도 따라와요.'],
-      scene: `${S}/class/img_class_poem_wave.webp`,
+      scene: '/scenes/class/img_class_poem_wave.webp',
     },
     {
       sentenceId: 'study_4',
@@ -166,7 +164,7 @@ export const CLASS: ClassScenario = {
         '몹시 추운 사람도 들어왔다.',
         '오들오들.',
       ],
-      scene: `${S}/class/img_class_poem_cold.webp`,
+      scene: '/scenes/class/img_class_poem_cold.webp',
     },
   ],
 };
