@@ -37,6 +37,20 @@ export type PronunciationSentence = {
   sentenceId: string;
   category: SentenceCategory;
   text: string;
+  /**
+   * 모국어 번역. 언어 코드(`vi` · `zh`)를 키로 한 번에 온다.
+   *
+   * 표현 퀴즈의 힌트(전구)가 이 값을 띄운다. **화면 진입 때 받아 두는 것이 핵심이다** —
+   * 전구를 누르는 순간 서버를 부르면 아이는 버튼이 안 눌린 줄 알고 다시 누른다.
+   */
+  translations?: Record<string, string>;
+};
+
+/** 앱 계약의 언어 enum → 번역표의 키. 한국어는 번역할 것이 없다. */
+export const TRANSLATION_KEY: Record<NativeLanguage, string | null> = {
+  KOREAN: null,
+  VIETNAMESE: 'vi',
+  CHINESE: 'zh',
 };
 
 export type WordScore = {

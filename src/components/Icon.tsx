@@ -33,7 +33,8 @@ export type IconName =
   | 'person'
   | 'books'
   | 'backpack'
-  | 'check';
+  | 'check'
+  | 'bulb';
 
 const PATHS: Record<IconName, React.ReactNode> = {
   mic: (
@@ -125,6 +126,17 @@ const PATHS: Record<IconName, React.ReactNode> = {
     </>
   ),
   check: <path d="M5 12.6 9.8 17.4 19 6.8" />,
+  bulb: (
+    <>
+      {/* 유리구 — 위가 둥글고 아래로 좁아진다 */}
+      <path d="M12 3.2a6 6 0 0 0-3.5 10.9c.5.4.8 1 .8 1.6v.6h5.4v-.6c0-.6.3-1.2.8-1.6A6 6 0 0 0 12 3.2Z" />
+      {/* 소켓 두 줄 */}
+      <path d="M9.7 18.4h4.6" />
+      <path d="M10.4 20.8h3.2" />
+      {/* 빛 — 켜졌다는 신호 */}
+      <path d="M12 1.2v-.9M4.6 4.6l-.6-.6M19.4 4.6l.6-.6M2.6 11.4h-.9M21.4 11.4h.9" />
+    </>
+  ),
 };
 
 /** 채워서 그리는 아이콘 — 선으로 그리면 형태가 안 읽힌다 */

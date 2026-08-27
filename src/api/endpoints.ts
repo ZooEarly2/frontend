@@ -76,6 +76,24 @@ export function getSentences(signal?: AbortSignal): Promise<PronunciationSentenc
  * STT 를 거치지 않는다. 발음은 텍스트로 알 수 없어서 녹음을 그대로 보낸다.
  * `sentenceId` 는 위 목록에서 받은 값이며 앱이 만들지 않는다.
  */
+/**
+ * 채점 서비스를 미리 깨운다. 결과는 쓰지 않는다.
+ *
+ * 문장 목록 요청이 서버에서 예열을 겸한다 — 그래서 목록이 필요 없는 화면도
+ * 이걸 부르면 된다. 수업시간이 그랬다: 동시는 앱에 들어 있어서 목록을 부를
+ * 일이 없고, 그 바람에 **예열이 한 번도 걸리지 않아** 낭독 채점이 늘 콜드
+ * 스타트(38~68초 실측)를 그대로 맞았다. 따라 말하기는 목록을 받아가느라
+ * 우연히 예열돼 0.8초였다 — 같은 채점인데 화면에 따라 80배가 갈렸다.
+ *
+ * 실패는 삼킨다. 준비 운동이지 요청이 아니다.
+ */
+export function warmUpScoring(signal?: AbortSignal): Promise<void> {
+  return getSentences(signal).then(
+    () => undefined,
+    () => undefined,
+  );
+}
+
 export function pronunciation(
   audio: RecordingFile,
   sentenceId: string,

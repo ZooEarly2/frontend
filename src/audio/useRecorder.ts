@@ -110,7 +110,13 @@ export function useRecorder(onLimitReached?: (audio: RecordingFile) => void): Us
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          // 사람 목소리 하나를 담는데 스테레오는 파일만 두 배로 키운다.
+          // ideal 로 준다 — exact 로 주면 못 맞추는 기기에서 녹음이 아예 안 된다.
+          channelCount: { ideal: 1 },
+        },
       });
     } catch {
       // 권한 거부와 마이크 없음을 같게 다룬다 — 아이가 할 수 있는 일은 어느 쪽이든 없다.
@@ -121,7 +127,16 @@ export function useRecorder(onLimitReached?: (audio: RecordingFile) => void): Us
     try {
       streamRef.current = stream;
       extRef.current = picked.ext;
-      const recorder = new MediaRecorder(stream, { mimeType: picked.mimeType });
+      /*
+       * 비트레이트를 지정하지 않으면 브라우저가 음악 기준(~256kbps)으로 잡는다.
+       * 3.5초 녹음이 109KB 였다(실측). 말소리에는 32kbps 면 충분해서 —
+       * 음성 통화 앱들이 20kbps 대를 쓴다 — 열 배 넘게 줄어든다.
+       * 아이가 말한 뒤 기다리는 시간은 업로드가 끝나야 시작한다.
+       */
+      const recorder = new MediaRecorder(stream, {
+        mimeType: picked.mimeType,
+        audioBitsPerSecond: 32_000,
+      });
       chunksRef.current = [];
       recorder.addEventListener('dataavailable', (event) => {
         if (event.data.size > 0) chunksRef.current.push(event.data);

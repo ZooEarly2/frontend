@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ApiError, CHILD_FALLBACK } from '@/api/client';
 import { getSentences, pronunciation, type RecordingFile } from '@/api/endpoints';
-import type { PronunciationResult, PronunciationSentence } from '@/api/types';
+import { TRANSLATION_KEY, type PronunciationResult, type PronunciationSentence } from '@/api/types';
 import {
   BigButton,
   BlankSentence,
@@ -18,6 +18,7 @@ import {
   TopBar,
 } from '@/components';
 import { Gem } from '@/components/Gem';
+import { Icon } from '@/components/Icon';
 import { Stage } from '@/components/Stage';
 import {
   announce,
@@ -32,6 +33,21 @@ import { CATEGORY_GEM, DIALOGUE_SCENARIOS } from '@/scenarios/data';
 import type { CategoryId } from '@/scenarios/types';
 import { useAppState } from '@/store/appState';
 import './screens.css';
+
+/**
+ * 채점이 "다시 말하면 되는 실패" 였나.
+ *
+ * 422 를 통째로 본다. 코드로만 가르면 안 되는 이유가 있다 — 이 자리에서 422 로
+ * 오는 것은 셋인데(문장과 다른 말 `OFF_SCRIPT`, 채점할 어절이 없음, 녹음이 비었음)
+ * 아이 입장에서는 **전부 같은 일**이다. "네 말이 닿지 않았으니 다시 해보자".
+ * 아이에게 세 갈래로 다른 말을 할 것도 아니면서 코드를 갈라 보면, 서버가 코드를
+ * 하나 더 늘리는 날 조용히 칭찬 화면으로 새는 길만 남는다.
+ *
+ * 400 은 여기 들어오지 않는다 — 포맷·용량은 게이트웨이가 먼저 400 으로 끊는다.
+ */
+function retryable(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 422;
+}
 
 /**
  * 등교·급식·하교 — 같은 흐름을 쓰는 세 시나리오.
@@ -106,7 +122,7 @@ type Chosen = { text: string; sentenceId: string | null };
 export function DialoguePlay() {
   const { category } = useParams<{ category: string }>();
   const navigate = useNavigate();
-  const { completeCategory } = useAppState();
+  const { completeCategory, profile } = useAppState();
 
   const scenario = DIALOGUE_SCENARIOS[category as Exclude<CategoryId, 'CLASS'>];
 
@@ -119,9 +135,15 @@ export function DialoguePlay() {
   const [score, setScore] = useState<PronunciationResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  /** 힌트를 펼쳤나. 아이가 직접 누를 때만 열린다 */
+  const [hintOpen, setHintOpen] = useState(false);
+  /** 문장과 아주 다른 말을 한 횟수. 0 이면 아직 한 번도 어긋나지 않았다 */
+  const [offScript, setOffScript] = useState(0);
 
   const alive = useRef(true);
   const abort = useRef<AbortController | null>(null);
+  /** 방금 실패를 다시 해볼 수 있나. run() 이 삼킨 판정을 부른 쪽에 한 번 넘겨준다 */
+  const lastErrorStatus = useRef<number | null>(null);
 
   useEffect(() => {
     alive.current = true;
@@ -164,18 +186,44 @@ export function DialoguePlay() {
     })) as PronunciationSentence[];
   }, [scenario, sentences]);
 
+  /*
+   * 퀴즈 문장을 아이의 모국어로.
+   *
+   * 번역은 추론 서버가 문장 목록에 실어 내려준다 — 누를 때마다 번역을 부르면
+   * 전구를 누르고 몇 초를 기다려야 하고, 그 사이 아이는 뜻을 물어본 것을 잊는다.
+   * 문장이 열 개로 고정이라 목록에 함께 담아 보내는 편이 맞는다.
+   *
+   * 한국어를 모국어로 고른 아이에게는 전구를 보여주지 않는다 — 같은 문장을
+   * 한 번 더 보여주는 버튼은 눌러봐야 아무 일도 안 일어난 것으로 배운다.
+   */
+  const hintKey = profile ? TRANSLATION_KEY[profile.nativeLanguage] : null;
+  const hint = useMemo(() => {
+    if (!hintKey || !score) return null;
+    const found = (sentences ?? []).find(
+      (item) => item.text === score.sentence || (chosen?.sentenceId && item.sentenceId === chosen.sentenceId),
+    );
+    return found?.translations?.[hintKey] ?? null;
+  }, [hintKey, score, sentences, chosen]);
+
   const run = useCallback(async <T,>(task: (signal: AbortSignal) => Promise<T>): Promise<T | null> => {
     abort.current?.abort();
     const controller = new AbortController();
     abort.current = controller;
     setBusy(true);
     setNotice(null);
+    lastErrorStatus.current = null;
     try {
       return await task(controller.signal);
     } catch (error) {
-      if (error instanceof ApiError && error.code === 'CANCELLED') return null;
-      // 아이에게는 항상 같은 말만 한다. 코드도, "오류"도 보여주지 않는다.
-      if (alive.current) setNotice(CHILD_FALLBACK);
+      const code = error instanceof ApiError ? error.code : null;
+      if (code === 'CANCELLED') return null;
+      lastErrorStatus.current = error instanceof ApiError ? error.status : null;
+      /*
+       * 422 만 빼놓는다. 나머지는 아이가 할 수 있는 일이 없어서 늘 같은 말만
+       * 하지만, 422 는 **다시 말하면 되는 일**이라 부른 쪽이 아이 말투로 따로
+       * 안내한다. 여기서 뭉뚱그리면 "오류" 문구와 구분이 없어진다.
+       */
+      if (alive.current && !retryable(error)) setNotice(CHILD_FALLBACK);
       return null;
     } finally {
       if (alive.current && abort.current === controller) setBusy(false);
@@ -194,9 +242,25 @@ export function DialoguePlay() {
       const result = await run((signal) => pronunciation(audio, chosen.sentenceId as string, signal));
       if (!alive.current) return;
       if (!result) {
+        /*
+         * 고른 문장이 아니라 아주 다른 말을 했다.
+         *
+         * 예전에는 채점이 실패한 **모든** 경우를 여기서 칭찬 화면으로 흘려보냈다.
+         * 아이를 실패에 가두지 않으려던 것인데, 그 바람에 전혀 다른 말을 해도
+         * "잘했어!" 가 떴다 — 서버는 off_script 로 알고 있었고 앱이 그 신호를
+         * 버리고 있었다. 아이가 배우는 것이 "아무 말이나 하면 통과한다" 가 된다.
+         *
+         * 그렇다고 무한히 붙잡아 둘 수도 없다. 세 번까지는 다시 말해보게 하고,
+         * 그 뒤에는 넘어갈 길을 열어준다(아래 scene-footer).
+         */
+        if (lastErrorStatus.current === 422) {
+          setOffScript((n) => n + 1);
+          return; // REPEAT 에 그대로 머문다
+        }
         setStep('PRAISE');
         return;
       }
+      setOffScript(0);
       setScore(result);
       // 잘함/못함 판정은 서버가 한다. 앱은 targetWord 가 null 인지만 본다.
       setStep(result.targetWord === null ? 'PRAISE' : 'QUIZ');
@@ -388,6 +452,20 @@ export function DialoguePlay() {
           <>
             <div className="stage-center">
               <p className="subtitle on-scene">이제 따라 말해볼까요?</p>
+              {offScript > 0 ? (
+                /*
+                  말풍선으로 띄우는 이유. 이 문장은 아이가 **들어야** 하는 말이다 —
+                  글자를 못 읽는 아이에게 작은 안내 문구로 띄우면 화면이 그냥
+                  멈춘 것으로 보인다. 말풍선은 스스로 읽어준다.
+
+                  key 에 횟수를 태워 매번 다시 읽어준다. 문구가 같으면 두 번째
+                  실패에서는 아무 소리도 안 나서, 아이는 자기 말이 닿았는지조차
+                  알 수 없다.
+                */
+                <SpeechBubble key={offScript} tone="teacher">
+                  {'잘 못 들었어.\n다시 말해줄래?'}
+                </SpeechBubble>
+              ) : null}
               <SentenceBox text={chosen.text} />
               <Character who="me" pose={recorder.isRecording ? 'speak' : 'hello'} height={150} />
               {busy ? (
@@ -421,6 +499,18 @@ export function DialoguePlay() {
                 <BigButton tone="ghost" onClick={() => setStep('PRAISE')}>
                   마이크 없이 넘어가기
                 </BigButton>
+              ) : offScript >= 3 ? (
+                /*
+                  세 번을 다시 말해도 닿지 않으면 길을 열어준다. 마이크가 먼
+                  자리이거나, 주변이 시끄럽거나, 아이가 오늘은 말하기 싫은 날일
+                  수 있다 — 어느 쪽이든 같은 화면에 계속 붙잡아 두는 것보다
+                  나쁘지 않다.
+
+                  다만 칭찬 화면으로는 보내지 않는다. 그게 처음의 문제였다.
+                */
+                <BigButton tone="ghost" onClick={() => setStep('COMPLETE')}>
+                  괜찮아, 다음으로
+                </BigButton>
               ) : null}
             </div>
           </>
@@ -448,7 +538,7 @@ export function DialoguePlay() {
                     ? '듣고 있어!'
                     : step === 'ANSWER'
                       ? '잘했어!'
-                      : '빈칸에 들어갈 말을 말해줄래?'}
+                      : '문장을 다시 말해볼래?'}
                 </SpeechBubble>
                 <div className="actors actors--grounded">
                   <PartnerActor
@@ -463,6 +553,29 @@ export function DialoguePlay() {
                   targetIndex={score.targetIndex ?? 0}
                   answer={step === 'ANSWER' ? (score.targetWord ?? undefined) : undefined}
                 />
+                {hint ? (
+                  <div className="hint">
+                    {/*
+                      뜻을 늘 띄워두지 않는다. 모국어가 옆에 있으면 아이는 한국어를
+                      읽지 않고 그것부터 본다 — 물어봤을 때만 켜져야 한다.
+                    */}
+                    <button
+                      type="button"
+                      className="hint__btn"
+                      data-on={hintOpen}
+                      onClick={() => {
+                        setHintOpen(true);
+                        // 글자를 아직 못 읽는 아이가 대부분이다. 모국어라도
+                        // 보여주기만 하면 그림에 지나지 않아, 소리로도 들려준다.
+                        if (profile) void speak(hint, profile.nativeLanguage, 'TEACHER');
+                      }}
+                    >
+                      <Icon name="bulb" size={20} />
+                      <span>{hintOpen ? '다시 들어보기' : '무슨 뜻이야?'}</span>
+                    </button>
+                    {hintOpen ? <p className="hint__text">{hint}</p> : null}
+                  </div>
+                ) : null}
               </div>
               {step === 'QUIZ_LISTENING' ? (
                 /*
