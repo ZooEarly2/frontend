@@ -75,6 +75,14 @@ export type ClassPoem = {
   lines: string[];
   /** 시 카드에 깔리는 그림 */
   scene: string;
+  /**
+   * 글자를 아래로 더 내릴 거리(px).
+   *
+   * 그림마다 위쪽에 무엇이 그려져 있는지가 달라서, 같은 자리에 글을 얹으면
+   * 어떤 그림에서는 그림 속 물체와 겹친다. 시와 그림이 한 덩어리로 묶여 있으니
+   * 이 값도 여기 둔다 — 그림을 바꾸면 이 값도 같이 봐야 한다.
+   */
+  textOffset?: number;
 };
 
 export type ClassScenario = {

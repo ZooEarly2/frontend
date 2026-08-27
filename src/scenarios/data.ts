@@ -146,6 +146,8 @@ export const CLASS: ClassScenario = {
       title: '눈',
       lines: ['눈이 와요, 눈이 와요', '하얀 눈이 펑펑 와요', '우리 같이 눈사람 만들어요.'],
       scene: `${S}/class/img_class_poem_snow.webp`,
+      // 눈 그림은 위쪽이 비어 보이지 않는다. 한 줄만큼 내려 얹는다
+      textOffset: 22,
     },
     {
       sentenceId: 'study_3',

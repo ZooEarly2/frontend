@@ -325,7 +325,12 @@ export function ClassPlay() {
         폭이 좁은 폰에서는 높이도 같이 줄어드는데, 여섯 줄을 기본 크기로 넣으면
         마지막 줄이 overflow:hidden 에 잘린다 — 시의 끝 행이 사라지는 셈이다.
       */}
-      <span className="poem-card__text" data-long={poem.lines.length >= 5}>
+      <span
+        className="poem-card__text"
+        data-long={poem.lines.length >= 5}
+        // 그림마다 위쪽에 그려진 것이 달라, 시마다 시작 높이를 따로 준다
+        style={poem.textOffset ? { paddingTop: 20 + poem.textOffset } : undefined}
+      >
         <span className="poem-card__title">{poem.title}</span>
         {poem.lines.map((line, index) => (
           <span
