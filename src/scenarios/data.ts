@@ -156,9 +156,54 @@ export const CLASS: ClassScenario = {
   ],
 };
 
-/** 오늘 읽을 동시 한 편. 화면에 들어올 때 한 번만 뽑아 끝까지 같은 편을 쓴다. */
+/** 직전에 읽은 시를 적어 두는 자리. 프로필과 따로 둔다 — 날짜가 바뀌어도 남아야 한다. */
+const LAST_POEM_KEY = 'zooearly.lastPoem';
+
+/**
+ * 오늘 읽을 동시 한 편. 화면에 들어올 때 한 번만 뽑아 끝까지 같은 편을 쓴다.
+ *
+ * **직전에 나온 편은 빼고 뽑는다.** 순수 무작위로 세 편 중 하나를 고르면 같은 시가
+ * 연달아 나오는 일이 자주 생긴다 — 세 편이면 3분의 1이다. 어른은 그걸 우연으로
+ * 읽지만 아이는 "안 바뀐다" 로 읽고, 두 번째 날부터 시를 읽는 대신 외운 것을
+ * 되뇌기 시작한다. 그러면 발음 채점이 아이가 지금 읽을 수 있는 것이 아니라
+ * 기억력을 재게 된다.
+ *
+ * localStorage 가 막힌 브라우저(사파리 시크릿 등)에서는 그냥 무작위로 돌아간다 —
+ * 시를 못 읽게 하는 것보다 가끔 겹치는 편이 낫다.
+ */
 export function randomPoem(): ClassPoem {
-  return CLASS.poems[Math.floor(Math.random() * CLASS.poems.length)];
+  let last: string | null = null;
+  try {
+    last = window.localStorage.getItem(LAST_POEM_KEY);
+  } catch {
+    last = null;
+  }
+
+  const pool = CLASS.poems.filter((item) => item.sentenceId !== last);
+  const from = pool.length > 0 ? pool : CLASS.poems;
+  const picked = from[Math.floor(Math.random() * from.length)];
+
+  try {
+    window.localStorage.setItem(LAST_POEM_KEY, picked.sentenceId);
+  } catch {
+    // 적어 두지 못하면 다음번에 겹칠 수 있다. 그뿐이라 넘어간다.
+  }
+  return picked;
+}
+
+/**
+ * 직전에 읽은 시 기록을 지운다.
+ *
+ * "처음부터 플레이하기" 는 기기를 **다음 아이에게 넘기는** 동선이다. 앞 아이가
+ * 읽은 것 때문에 다음 아이의 첫 시가 좁혀질 이유가 없다 — childId 를 새로 만드는
+ * 것과 같은 이유다.
+ */
+export function forgetLastPoem(): void {
+  try {
+    window.localStorage.removeItem(LAST_POEM_KEY);
+  } catch {
+    // 못 지워도 다음 아이가 시 한 편을 덜 만날 뿐이다
+  }
 }
 
 export const DIALOGUE_SCENARIOS: Record<Exclude<CategoryId, 'CLASS'>, DialogueScenario> = {

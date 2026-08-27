@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { NativeLanguage, StorySceneRecord } from '@/api/types';
 import { setNarration } from '@/audio/speaker';
+import { forgetLastPoem } from '@/scenarios/data';
 import { resetChildId } from '@/store/childId';
 import { CATEGORY_ORDER, type CategoryId } from '@/scenarios/types';
 
@@ -178,6 +179,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
     // 신원도 새로 만든다. 이걸 안 하면 다음 아이가 앞 아이의 동화 앨범을 열어보게 된다.
     resetChildId();
+    // 앞 아이가 읽은 시 때문에 다음 아이의 첫 시가 좁혀질 이유는 없다.
+    forgetLastPoem();
     setState({ ...EMPTY, dateKey: todayKey() });
   }, []);
 
