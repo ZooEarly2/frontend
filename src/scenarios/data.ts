@@ -27,7 +27,7 @@ export const ARRIVAL: DialogueScenario = {
     intro: `${S}/arrival/bg_arrival_street.png`,
     talk: `${S}/arrival/bg_arrival_street.png`,
     repeat: `${S}/arrival/bg_arrival_street.png`,
-    complete: `${S}/arrival/bg_arrival_complete.png`,
+    complete: `${S}/arrival/bg_arrival_complete2.webp`,
   },
   partner: { name: '호랑이 친구', image: `${S}/arrival/img_arrival_tiger.png`, voice: 'FRIEND' },
   intro: { situation: '학교 앞이에요.\n친구를 만났어요!', prompt: '어떻게 인사해 볼까요?' },
@@ -59,7 +59,7 @@ export const LUNCH: DialogueScenario = {
     intro: `${S}/lunch/bg_lunch_intro.png`,
     talk: `${S}/lunch/bg_lunch_question.png`,
     repeat: `${S}/lunch/bg_lunch_question.png`,
-    complete: `${S}/lunch/bg_lunch_complete.png`,
+    complete: `${S}/lunch/bg_lunch_complete2.webp`,
   },
   // 배경에도 급식 선생님이 그려져 있지만, 인트로에서는 배경을 흐려 뒤로 밀고
   // 이 그림만 또렷하게 세운다 — 말하는 사람이 누구인지 분명해진다.
@@ -83,7 +83,7 @@ export const DISMISSAL: DialogueScenario = {
     intro: `${S}/dismissal/bg_dismissal_intro.png`,
     talk: `${S}/dismissal/bg_dismissal_intro.png`,
     repeat: `${S}/dismissal/bg_dismissal_intro.png`,
-    complete: `${S}/dismissal/bg_dismissal_complete.png`,
+    complete: `${S}/dismissal/bg_dismissal_complete2.webp`,
   },
   partner: {
     name: '코끼리 선생님',
@@ -117,7 +117,7 @@ export const CLASS: ClassScenario = {
     intro: `${S}/class/bg_class_korean_intro.webp`,
     find: `${S}/class/bg_class_rabbit_order.webp`,
     poem: `${S}/class/bg_class_korean_intro.webp`,
-    complete: `${S}/class/bg_class_complete.webp`,
+    complete: `${S}/class/bg_class_complete2.webp`,
   },
   /** 책 넘기기·시 읽기 화면이 쓰는 그림 */
   props: {

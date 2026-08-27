@@ -41,6 +41,23 @@ const CHOICE_COUNT = 3;
 const RETRY_LINE = '잘 못 들었어. 다시 말해줄래?';
 
 /**
+ * 표현 퀴즈에서 아이가 말을 했는지 판정하는 기준.
+ *
+ * `level` 은 마이크 RMS 에 4를 곱한 값이다(useRecorder). 사람 말소리는 0.2~0.8,
+ * 조용한 방은 0.04 아래로 나온다. 0.13 이면 둘 사이가 넉넉히 갈린다.
+ *
+ * 한 프레임만 넘는 것으로는 안 본다 — 책상을 한 번 툭 치거나 옷깃이 스쳐도
+ * 한 프레임은 튄다. 세 프레임(약 50ms)은 이어져야 소리를 낸 것으로 친다.
+ *
+ * 애매하면 **말한 쪽으로 기울인다.** 주변이 시끄러워서 통과되는 것보다
+ * 말했는데 못 들었다고 되묻는 쪽이 아이에게 훨씬 나쁘다.
+ */
+const QUIZ_VOICE_LEVEL = 0.13;
+const QUIZ_VOICE_FRAMES = 3;
+/** 퀴즈에서 되묻는 횟수 상한. 그 뒤에는 답을 보여준다 — 여기 가둬둘 수는 없다 */
+const QUIZ_RETRY_MAX = 2;
+
+/**
  * 같은 씨앗이면 같은 순서.
  *
  * `Math.random()` 을 렌더 안에서 직접 부르면 다시 그릴 때마다 선택지가 뒤바뀐다 —
@@ -163,11 +180,15 @@ export function DialoguePlay() {
   const [hintOpen, setHintOpen] = useState(false);
   /** 문장과 아주 다른 말을 한 횟수. 0 이면 아직 한 번도 어긋나지 않았다 */
   const [offScript, setOffScript] = useState(0);
+  /** 퀴즈에서 아무 말도 안 해서 되물은 횟수 */
+  const [quizRetry, setQuizRetry] = useState(0);
 
   const alive = useRef(true);
   const abort = useRef<AbortController | null>(null);
   /** 방금 실패를 다시 해볼 수 있나. run() 이 삼킨 판정을 부른 쪽에 한 번 넘겨준다 */
   const lastErrorStatus = useRef<number | null>(null);
+  /** 퀴즈에서 소리가 기준을 넘은 프레임 수 */
+  const quizHeard = useRef(0);
 
   useEffect(() => {
     alive.current = true;
@@ -315,24 +336,63 @@ export function DialoguePlay() {
 
   const recorder = useRecorder(onRepeatRecorded);
 
+  /*
+   * 아이가 말할 차례 동안 소리가 났는지 센다.
+   *
+   * 채점하지 않는다 — 퀴즈에서 아이가 말하는 것은 빈칸 한 낱말이라, 문장
+   * 전체를 기준으로 채점하면 무엇을 말해도 어긋난다. 여기서 알아야 하는 것은
+   * "말을 하긴 했나" 하나뿐이고, 그건 마이크 크기만 보면 되므로 서버를 부를
+   * 일도 없다. 아이가 말하자마자 판정이 끝난다.
+   */
+  useEffect(() => {
+    if (step !== 'QUIZ_LISTENING') return;
+    if (recorder.level >= QUIZ_VOICE_LEVEL) quizHeard.current += 1;
+  }, [recorder.level, step]);
+
   // 칭찬·듣는 중 화면은 버튼이 없다 — 읽어주기가 끝나면 스스로 넘어간다.
   useEffect(() => {
     if (step !== 'PRAISE' && step !== 'QUIZ_LISTENING') return;
-    const next: Step = step === 'QUIZ_LISTENING' ? 'ANSWER' : 'COMPLETE';
+    const listening = step === 'QUIZ_LISTENING';
     // 칭찬은 다 들려주면 끝이지만, "듣고 있어!" 는 그 뒤가 아이 차례다.
-    const speakingTime = step === 'QUIZ_LISTENING' ? SPEAKING_WINDOW_MS : 0;
+    const speakingTime = listening ? SPEAKING_WINDOW_MS : 0;
     let cancelled = false;
     setMyTurn(false);
+    quizHeard.current = 0;
 
     void holdUntilSpoken()
-      .then(() => {
-        if (cancelled || !alive.current) return undefined;
+      .then(async () => {
+        if (cancelled || !alive.current) return;
         // 물음을 다 읽어준 지금부터가 아이 시간이다. 그때 남은 시간을 보여준다.
-        if (speakingTime) setMyTurn(true);
-        return new Promise<void>((resolve) => window.setTimeout(resolve, speakingTime));
+        if (!listening) return;
+        setMyTurn(true);
+        // 낭독이 끝난 뒤에 연다. 열어둔 채 읽어주면 스피커 소리가 그대로 녹음된다.
+        await recorder.start();
+        await new Promise<void>((resolve) => window.setTimeout(resolve, speakingTime));
+        await recorder.stop(); // 파일은 쓰지 않는다. 크기만 보려고 연 것이다
       })
       .then(() => {
-        if (!cancelled && alive.current) setStep(next);
+        if (cancelled || !alive.current) return;
+        if (!listening) {
+          setStep('COMPLETE');
+          return;
+        }
+        /*
+         * 아무 말도 안 했는데 "잘했어!" 가 뜨고 있었다. 이 단계는 녹음도 채점도
+         * 하지 않고 4.5초만 기다렸다가 무조건 정답 화면으로 넘어갔다 —
+         * 아이가 배우는 것이 "가만히 있으면 통과한다" 가 된다.
+         */
+        /*
+         * 마이크가 막힌 아이는 판정할 방법이 없다. 그때 되물으면 아이는 시키는
+         * 대로 크게 말해도 계속 같은 화면을 보게 된다 — 자기가 무엇을 잘못하는지
+         * 알 수 없는 채로. 들을 수 없으면 들은 것으로 친다.
+         */
+        const spoke = recorder.error !== null || quizHeard.current >= QUIZ_VOICE_FRAMES;
+        if (spoke || quizRetry >= QUIZ_RETRY_MAX) {
+          setStep('ANSWER');
+          return;
+        }
+        setQuizRetry((n) => n + 1);
+        setStep('QUIZ');
       });
 
     return () => {
@@ -606,12 +666,14 @@ export function DialoguePlay() {
               {/* 기린도 흉상이다. 말풍선을 바로 위에 붙이고, 기린은 빈칸 카드에
                   살짝 파묻어 단면을 가린다 */}
               <div className="talk-group">
-                <SpeechBubble tone="teacher">
+                <SpeechBubble key={`${step}-${quizRetry}`} tone="teacher">
                   {step === 'QUIZ_LISTENING'
                     ? '듣고 있어!'
                     : step === 'ANSWER'
                       ? '잘했어!'
-                      : '문장을 다시 말해볼래?'}
+                      : quizRetry > 0
+                        ? '소리가 안 들렸어. 다시 말해볼래?'
+                        : '문장을 다시 말해볼래?'}
                 </SpeechBubble>
                 <div className="actors actors--grounded">
                   <PartnerActor
@@ -676,6 +738,10 @@ export function DialoguePlay() {
                   </div>
                 ) : null}
               </div>
+              {quizRetry > 0 && step === 'QUIZ' ? (
+                // 말풍선이 이미 되묻고 있으므로 여기서는 무엇을 하면 되는지만 짚는다
+                <p className="retry-note">마이크에 대고 크게 말해요</p>
+              ) : null}
               {step === 'QUIZ_LISTENING' ? (
                 /*
                   5초 가까이 점 세 개만 깜빡이면 아이는 화면이 멈춘 줄 안다.
