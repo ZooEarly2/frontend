@@ -34,6 +34,30 @@ import type { CategoryId } from '@/scenarios/types';
 import { useAppState } from '@/store/appState';
 import './screens.css';
 
+/** 화면에 한 번에 띄우는 표현 개수. 넷을 넘기면 아이가 고르지 못하고 헤맨다. */
+const CHOICE_COUNT = 3;
+
+/** 고른 문장이 아니라 다른 말을 했을 때 되묻는 말. 화면에도 뜨고 소리로도 나간다. */
+const RETRY_LINE = '잘 못 들었어. 다시 말해줄래?';
+
+/**
+ * 같은 씨앗이면 같은 순서.
+ *
+ * `Math.random()` 을 렌더 안에서 직접 부르면 다시 그릴 때마다 선택지가 뒤바뀐다 —
+ * 아이가 두 번째 것을 누르려다 손이 닿는 순간 다른 문장이 되어 있다.
+ * 씨앗을 화면당 한 번만 뽑아 두고, 순서는 그 씨앗에서 결정론적으로 만든다.
+ */
+function shuffled<T>(items: T[], seed: number): T[] {
+  const out = [...items];
+  let state = seed >>> 0;
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    const j = state % (i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 /**
  * 채점이 "다시 말하면 되는 실패" 였나.
  *
@@ -173,18 +197,31 @@ export function DialoguePlay() {
     return () => controller.abort();
   }, []);
 
+  /*
+   * 회차마다 다른 선택지를 뽑되, 이 화면에 머무는 동안은 바뀌지 않게 한다.
+   * 씨앗을 ref 에 한 번만 담아 두는 이유다 — useMemo 만으로는 React 가 캐시를
+   * 버릴 때 순서가 새로 정해진다.
+   */
+  const shuffleSeed = useRef(Math.floor(Math.random() * 0xffffffff)).current;
+
   const choices = useMemo(() => {
     if (!scenario) return [];
-    const fromServer = (sentences ?? []).filter((s) => s.category === scenario.sentenceCategory);
-    if (fromServer.length > 0) return fromServer;
-    return scenario.fallbackChoices.map((text, i) => ({
+    /*
+     * 서버 목록에서 이 시나리오 것만 걸러 무작위 세 개를 뽑는다.
+     * 등교는 9개, 하교는 6개, 급식은 3개다 — 급식은 뽑아도 그대로다.
+     * 매번 같은 셋만 나오면 아이는 문장을 읽지 않고 자리를 외운다.
+     */
+    const pool = (sentences ?? []).filter((s) => s.category === scenario.sentenceCategory);
+    if (pool.length > 0) return shuffled(pool, shuffleSeed).slice(0, CHOICE_COUNT);
+    // 목록을 못 받은 경우다. id 가 없으므로 채점 단계에서 걸러진다.
+    const fallback = scenario.fallbackChoices.map((text, i) => ({
       sentenceId: '',
       category: scenario.sentenceCategory,
       text,
-      // 목록을 못 받은 경우다. id 가 없으므로 채점 단계에서 걸러진다.
       __fallback: i,
     })) as PronunciationSentence[];
-  }, [scenario, sentences]);
+    return shuffled(fallback, shuffleSeed).slice(0, CHOICE_COUNT);
+  }, [scenario, sentences, shuffleSeed]);
 
   /*
    * 퀴즈 문장을 아이의 모국어로.
@@ -197,13 +234,21 @@ export function DialoguePlay() {
    * 한 번 더 보여주는 버튼은 눌러봐야 아무 일도 안 일어난 것으로 배운다.
    */
   const hintKey = profile ? TRANSLATION_KEY[profile.nativeLanguage] : null;
+  // 조각을 다시 잇는 문자. 중국어는 띄어쓰기가 없어서 붙여 써야 한다.
+  const hintJoiner = hintKey === 'zh' ? '' : ' ';
   const hint = useMemo(() => {
     if (!hintKey || !score) return null;
-    const found = (sentences ?? []).find(
-      (item) => item.text === score.sentence || (chosen?.sentenceId && item.sentenceId === chosen.sentenceId),
-    );
-    return found?.translations?.[hintKey] ?? null;
-  }, [hintKey, score, sentences, chosen]);
+    /*
+     * sentenceId 로 찾는다. text 로 맞춰 보면 안 된다 —
+     * 서버는 어절 수가 어긋나면 목록의 문장이 아니라 **채점기가 소리 나는 대로
+     * 적은 문장**을 돌려준다("같이" → "가치"). 그때 text 비교는 조용히 빗나가서,
+     * 아이가 전구를 눌러도 아무 일도 안 일어난다. sentenceId 는 그 경우에도 같다.
+     */
+    const found = (sentences ?? []).find((item) => item.sentenceId === score.sentenceId);
+    const whole = found?.translations?.[hintKey];
+    if (!whole) return null;
+    return { whole, parts: found?.translationParts?.[hintKey] ?? null };
+  }, [hintKey, score, sentences]);
 
   const run = useCallback(async <T,>(task: (signal: AbortSignal) => Promise<T>): Promise<T | null> => {
     abort.current?.abort();
@@ -308,6 +353,21 @@ export function DialoguePlay() {
     return () => stopSpeaking();
   }, [step, scenario]);
 
+  /*
+   * 되묻는 말을 소리로도 들려준다.
+   *
+   * 예전에는 말풍선이라 스스로 읽었는데, 띠로 바꾸면서 그 기능이 없어졌다.
+   * 글자를 아직 못 읽는 아이가 대부분이라 소리가 없으면 화면이 그냥 멈춘 것으로
+   * 보인다 — 무엇이 잘못됐는지도, 다시 말하면 된다는 것도 알 수 없다.
+   *
+   * 마이크가 열려 있는 동안에는 speaker 쪽이 알아서 참는다(스피커 소리가 녹음에
+   * 섞이기 때문이다). 여기까지 왔다는 건 이미 녹음이 끝났다는 뜻이다.
+   */
+  useEffect(() => {
+    if (offScript === 0) return;
+    void announce(RETRY_LINE, 'KOREAN', 'TEACHER');
+  }, [offScript]);
+
   // 따라 말하기 화면에 들어오면 음성을 미리 받아둔다.
   // 받아두기만 하고 재생하지 않는다 — 소리는 탭했을 때만 난다.
   useEffect(() => {
@@ -320,11 +380,18 @@ export function DialoguePlay() {
     completeCategory(scenario.id, {
       category: scenario.storyCategory,
       partnerLine: scenario.partnerLine,
-      // 아이가 실제로 고른 문장만 담는다. 목표 문장으로 대신 채우지 않는다.
-      childSaid: chosen?.text ?? null,
+      /*
+       * 아이가 실제로 고른 문장만 담는다. 목표 문장으로 대신 채우지 않는다.
+       *
+       * 세 번을 어긋난 뒤 넘어온 경우도 빼야 한다. 서버가 세 번이나 "그 문장이
+       * 아니다" 라고 한 말을, 동화에서는 아이가 한 말로 인쇄하게 된다 —
+       * 화면의 거짓 칭찬을 걷어내 놓고 동화에 그대로 남기면 고친 게 아니다.
+       * 담지 않으면 동화는 그 장면을 아이 대사 없이 엮는다.
+       */
+      childSaid: offScript >= 3 ? null : (chosen?.text ?? null),
       practicedWord: score?.targetWord ?? null,
     });
-  }, [step, scenario, chosen, score, completeCategory]);
+  }, [step, scenario, chosen, score, offScript, completeCategory]);
 
   if (!scenario) return null;
 
@@ -454,17 +521,17 @@ export function DialoguePlay() {
               <p className="subtitle on-scene">이제 따라 말해볼까요?</p>
               {offScript > 0 ? (
                 /*
-                  말풍선으로 띄우는 이유. 이 문장은 아이가 **들어야** 하는 말이다 —
-                  글자를 못 읽는 아이에게 작은 안내 문구로 띄우면 화면이 그냥
-                  멈춘 것으로 보인다. 말풍선은 스스로 읽어준다.
+                  말풍선이 아니라 가로 띠다. 말풍선으로 두면 캐릭터가 하는 말처럼
+                  읽혀서 아이가 말한 사람을 찾게 되는데, 이건 누가 하는 말이 아니라
+                  화면이 지금 어떤 상태인지를 알리는 것이다.
 
-                  key 에 횟수를 태워 매번 다시 읽어준다. 문구가 같으면 두 번째
-                  실패에서는 아무 소리도 안 나서, 아이는 자기 말이 닿았는지조차
-                  알 수 없다.
+                  key 에 횟수를 태워 매번 다시 나타나게 한다 — 두 번째 실패에서
+                  아무 변화가 없으면 아이는 자기 말이 닿았는지조차 알 수 없다.
+                  소리는 위의 useEffect 가 같은 값을 보고 따로 읽어준다.
                 */
-                <SpeechBubble key={offScript} tone="teacher">
-                  {'잘 못 들었어.\n다시 말해줄래?'}
-                </SpeechBubble>
+                <p key={offScript} className="retry-note">
+                  {RETRY_LINE}
+                </p>
               ) : null}
               <SentenceBox text={chosen.text} />
               <Character who="me" pose={recorder.isRecording ? 'speak' : 'hello'} height={150} />
@@ -495,11 +562,7 @@ export function DialoguePlay() {
                   }}
                 />
               </div>
-              {micBlocked ? (
-                <BigButton tone="ghost" onClick={() => setStep('PRAISE')}>
-                  마이크 없이 넘어가기
-                </BigButton>
-              ) : offScript >= 3 ? (
+              {offScript >= 3 ? (
                 /*
                   세 번을 다시 말해도 닿지 않으면 길을 열어준다. 마이크가 먼
                   자리이거나, 주변이 시끄럽거나, 아이가 오늘은 말하기 싫은 날일
@@ -510,6 +573,16 @@ export function DialoguePlay() {
                 */
                 <BigButton tone="ghost" onClick={() => setStep('COMPLETE')}>
                   괜찮아, 다음으로
+                </BigButton>
+              ) : micBlocked ? (
+                /*
+                  순서가 중요하다. 마이크 오류를 먼저 보면, 세 번 어긋난 아이가
+                  마이크까지 막혔을 때 탈출구가 COMPLETE 에서 PRAISE 로 바뀐다 —
+                  방금 닫은 거짓 칭찬 길이 그대로 다시 열린다. 어긋난 적이 있으면
+                  그쪽이 먼저다.
+                */
+                <BigButton tone="ghost" onClick={() => setStep('PRAISE')}>
+                  마이크 없이 넘어가기
                 </BigButton>
               ) : null}
             </div>
@@ -563,17 +636,43 @@ export function DialoguePlay() {
                       type="button"
                       className="hint__btn"
                       data-on={hintOpen}
-                      onClick={() => {
-                        setHintOpen(true);
-                        // 글자를 아직 못 읽는 아이가 대부분이다. 모국어라도
-                        // 보여주기만 하면 그림에 지나지 않아, 소리로도 들려준다.
-                        if (profile) void speak(hint, profile.nativeLanguage, 'TEACHER');
-                      }}
+                      aria-expanded={hintOpen}
+                      onClick={() => setHintOpen((open) => !open)}
                     >
                       <Icon name="bulb" size={20} />
-                      <span>{hintOpen ? '다시 들어보기' : '무슨 뜻이야?'}</span>
+                      {/*
+                        소리는 내지 않는다. 이 화면에서 아이가 들어야 하는 소리는
+                        한국어 문장뿐이라, 모국어까지 읽어주면 지금 무엇을 따라
+                        말해야 하는지가 흐려진다. 뜻은 눈으로만 확인하고 넘어간다.
+                        그래서 버튼도 "다시 들어보기" 가 아니라 접었다 펴는 것이다.
+                      */}
+                      <span>{hintOpen ? '뜻 접기' : '무슨 뜻이야?'}</span>
                     </button>
-                    {hintOpen ? <p className="hint__text">{hint}</p> : null}
+                    {hintOpen ? (
+                      <p className="hint__text">
+                        {/*
+                          빈칸이 모국어 문장의 **어느 부분인지** 짚어준다.
+                          뜻만 통째로 보여주면 "그래서 빈칸이 어느 말이냐" 가 그대로
+                          남는다. 어순이 달라서 같은 자리가 아니다 — "조금만 주세요" 의
+                          "조금만" 은 베트남어에서 문장 뒤쪽이다.
+
+                          대응표가 없으면(동시 등) 뜻만 보여준다. 짚어줄 자리를
+                          모르는 채 아무 데나 밑줄을 그으면 틀린 것을 가르치게 된다.
+                        */}
+                        {hint.parts && score.targetIndex !== null
+                          ? hint.parts.map((part, index) => (
+                              <span
+                                key={`${part.t}-${index}`}
+                                className="hint__part"
+                                data-mark={part.k.includes(score.targetIndex as number)}
+                              >
+                                {part.t}
+                                {hintJoiner}
+                              </span>
+                            ))
+                          : hint.whole}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
               </div>

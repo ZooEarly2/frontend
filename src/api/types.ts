@@ -44,6 +44,16 @@ export type PronunciationSentence = {
    * 전구를 누르는 순간 서버를 부르면 아이는 버튼이 안 눌린 줄 알고 다시 누른다.
    */
   translations?: Record<string, string>;
+  /**
+   * 번역문의 어느 조각이 한국어 어느 어절인지.
+   *
+   * 조각은 **번역문을 읽는 순서**대로다 — 한국어 순서가 아니라 `k` 가 뒤죽박죽인
+   * 것이 정상이다("조금만 주세요" 는 베트남어로 "Cho con(1) một chút thôi ạ.(0)").
+   * 한 조각이 어절 여럿을 덮을 수 있고(굳은 인사), 대응이 없으면 `k` 는 빈 배열이다.
+   *
+   * 동시(study)에는 없다. 서버가 늘 준다고 믿지 말 것.
+   */
+  translationParts?: Record<string, { t: string; k: number[] }[]>;
 };
 
 /** 앱 계약의 언어 enum → 번역표의 키. 한국어는 번역할 것이 없다. */

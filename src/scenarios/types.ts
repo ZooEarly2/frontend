@@ -59,15 +59,32 @@ export type DialogueScenario = {
   completeHint: string;
 };
 
+/**
+ * 동시 한 편.
+ *
+ * 그림을 시와 함께 묶어 둔다. 따로 두면 시만 바꾸고 그림을 안 바꾸는 실수가
+ * 나는데, 눈 오는 시에 꽃 그림이 깔려도 코드는 아무 말을 안 한다.
+ *
+ * `sentenceId` 도 여기 있다. 채점은 앱이 보낸 id 로 서버가 자기 문장을 찾아
+ * 하는 것이라, 화면에 띄운 시와 id 가 어긋나면 아이가 읽은 것과 다른 시를
+ * 기준으로 채점된다 — 무엇을 읽어도 "다른 말을 했다" 가 된다.
+ */
+export type ClassPoem = {
+  sentenceId: string;
+  title: string;
+  lines: string[];
+  /** 시 카드에 깔리는 그림 */
+  scene: string;
+};
+
 export type ClassScenario = {
   id: 'CLASS';
   title: string;
   tagline: string;
   scenes: { intro: string; find: string; poem: string; complete: string };
   /** 화면 위에 올리는 소품 그림 */
-  props: { book: string; bookFound: string; swipeHint: string; poemScene: string };
+  props: { book: string; bookFound: string; swipeHint: string };
   teacherLine: string;
-  poem: { title: string; lines: string[] };
-  /** 시 낭독은 고를 것이 없다 — 목록에 study 항목이 하나뿐이다. */
-  sentenceId: 'study_1';
+  /** 회차마다 이 중 한 편을 뽑는다 */
+  poems: ClassPoem[];
 };

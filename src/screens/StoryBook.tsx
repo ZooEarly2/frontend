@@ -29,9 +29,13 @@ const ENDING = '/scenes/story/fairytale_epi.png';
 /**
  * 그 쪽에서 읽어줄 말.
  *
- * 화면에 보이는 글을 **빠짐없이** 읽는다 — 소제목도, 아이가 오늘 실제로 한 말
- * (`quote`)도. 눌러서 듣던 때는 줄거리만 읽어도 됐지만, 저절로 읽어주는 지금은
+ * 아이가 오늘 실제로 한 말(`quote`)까지 읽는다. 저절로 읽어주는 화면에서
  * 화면에 떠 있는데 소리로 나오지 않는 줄이 있으면 그게 곧 빠뜨린 것이 된다.
+ *
+ * **소제목(`subtitle`)만 읽지 않는다.** "문앞에서" · "교실시간" 같은 말은 이야기의
+ * 일부가 아니라 쪽 번호 옆에 붙은 이정표다. 읽어주면 매 쪽이 제목 낭독으로
+ * 시작해서, 이어지던 이야기가 네 번 끊긴다 — 동화를 듣는 것이 아니라 목차를
+ * 듣는 것이 된다. 눈으로는 보이는 편이 어디쯤 왔는지 알려주므로 화면에는 남긴다.
  */
 export function narrationFor(story: Story, page: number, nickname: string): string {
   const total = story.scenes.length + 2;
@@ -42,7 +46,7 @@ export function narrationFor(story: Story, page: number, nickname: string): stri
     return '오늘 이야기 끝! 내일은 또 어떤 이야기가 생길까요? 오늘도 정말 잘했어요.';
   }
   const scene = story.scenes[page - 1];
-  const body = [scene.subtitle, scene.opening, scene.narration].filter(Boolean).join(' ');
+  const body = [scene.opening, scene.narration].filter(Boolean).join(' ');
 
   // 인용은 대개 내레이션 안에 이미 들어 있다("지우가 …라고 말했어요"). 그때 또 읽으면
   // 같은 말을 두 번 하는 셈이라, 안 들어 있을 때만 뒤에 붙인다.

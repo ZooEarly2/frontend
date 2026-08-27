@@ -1,4 +1,4 @@
-import type { CategoryId, ClassScenario, DialogueScenario } from './types';
+import type { CategoryId, ClassPoem, ClassScenario, DialogueScenario } from './types';
 
 /**
  * 시나리오 콘텐츠.
@@ -34,7 +34,17 @@ export const ARRIVAL: DialogueScenario = {
   partnerLine: '안녕! 만나서 반가워.',
   speakPrompt: '마이크를 누르고\n인사해 보세요!',
   defaultSentenceId: 'arrival_1',
-  fallbackChoices: ['안녕 나도 만나서 반가워 !', '안녕! 우리 같이 놀자!', '안녕! 같이 들어가자!'],
+  fallbackChoices: [
+    '안녕 나도 만나서 반가워 !',
+    '안녕! 우리 같이 놀자!',
+    '안녕! 같이 들어가자!',
+    '안녕! 나도 반가워.',
+    '안녕! 네 이름은 뭐야?',
+    '안녕! 우리 친구 하자!',
+    '안녕! 나 오늘 처음 왔어.',
+    '안녕! 같이 가자!',
+    '안녕! 만나서 나도 기뻐!',
+  ],
   completeTitle: '등교하기 완료!',
   completeHint: '이제 수업을 들어볼까요?',
 };
@@ -84,7 +94,15 @@ export const DISMISSAL: DialogueScenario = {
   partnerLine: '이제 집에 갈 시간이에요 !',
   speakPrompt: '마이크를 누르고\n인사해 보세요!',
   defaultSentenceId: 'departure_1',
-  fallbackChoices: ['선생님, 안녕히 가세요!', '선생님, 감사합니다!', '내일 또 뵙겠습니다!'],
+  fallbackChoices: [
+    // "가세요" 가 아니라 "계세요" 다 — 가는 쪽은 아이고 선생님은 남아 계신다.
+    '선생님, 안녕히 계세요!',
+    '선생님, 감사합니다!',
+    '내일 또 뵙겠습니다!',
+    '오늘 정말 재미있었어요!',
+    '내일 또 올게요!',
+    '네, 조심해서 갈게요!',
+  ],
   completeTitle: '하교하기 완료!',
   completeHint: '오늘도 멋진 하루를 보냈어요!',
 };
@@ -106,15 +124,42 @@ export const CLASS: ClassScenario = {
     book: `${S}/class/img_class_koreanbook.webp`,
     bookFound: `${S}/class/img_class_bookpage.webp`,
     swipeHint: `${S}/class/img_class_turn_hint.webp`,
-    poemScene: `${S}/class/img_class_poem.webp`,
   },
   teacherLine: '국어책 {page}페이지를 펴보자!',
-  poem: {
-    title: '꽃',
-    lines: ['노란 꽃이 피었어요', '예쁜 꽃이 피었어요', '바람이 살랑살랑', '꽃이 웃어요.'],
-  },
-  sentenceId: 'study_1',
+  /*
+   * 동시 세 편. 회차마다 한 편을 뽑는다 — 같은 시만 나오면 두 번째 날부터는
+   * 읽는 게 아니라 외운 것을 되뇌게 되고, 그러면 발음 채점이 아이가 지금 읽을
+   * 수 있는 것을 재는 게 아니라 기억력을 재게 된다.
+   *
+   * 각 편의 sentenceId 는 서버 목록(study_1..3)과 같아야 한다. 시를 여기서만
+   * 고치면 채점은 서버의 옛 문장으로 이뤄져 아이가 무엇을 읽든 어긋난다.
+   */
+  poems: [
+    {
+      sentenceId: 'study_1',
+      title: '꽃',
+      lines: ['노란 꽃이 피었어요', '예쁜 꽃이 피었어요', '바람이 살랑살랑', '꽃이 웃어요.'],
+      scene: `${S}/class/img_class_poem.webp`,
+    },
+    {
+      sentenceId: 'study_2',
+      title: '눈',
+      lines: ['눈이 와요, 눈이 와요', '하얀 눈이 펑펑 와요', '우리 같이 눈사람 만들어요.'],
+      scene: `${S}/class/img_class_poem_snow.webp`,
+    },
+    {
+      sentenceId: 'study_3',
+      title: '파도',
+      lines: ['파도가 와요, 철썩', '내 발을 만져요', '내가 뒤로 가면', '파도도 따라와요.'],
+      scene: `${S}/class/img_class_poem_wave.webp`,
+    },
+  ],
 };
+
+/** 오늘 읽을 동시 한 편. 화면에 들어올 때 한 번만 뽑아 끝까지 같은 편을 쓴다. */
+export function randomPoem(): ClassPoem {
+  return CLASS.poems[Math.floor(Math.random() * CLASS.poems.length)];
+}
 
 export const DIALOGUE_SCENARIOS: Record<Exclude<CategoryId, 'CLASS'>, DialogueScenario> = {
   ARRIVAL,
