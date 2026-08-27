@@ -320,7 +320,12 @@ export function ClassPlay() {
       style={{ backgroundImage: `url(${poem.scene})` }}
       onClick={() => void speakLines(poem.lines, setReadingLine)}
     >
-      <span className="poem-card__text">
+      {/*
+        줄이 다섯을 넘으면 글자를 줄인다. 카드가 정사각형(aspect-ratio 1/1)이라
+        폭이 좁은 폰에서는 높이도 같이 줄어드는데, 여섯 줄을 기본 크기로 넣으면
+        마지막 줄이 overflow:hidden 에 잘린다 — 시의 끝 행이 사라지는 셈이다.
+      */}
+      <span className="poem-card__text" data-long={poem.lines.length >= 5}>
         <span className="poem-card__title">{poem.title}</span>
         {poem.lines.map((line, index) => (
           <span

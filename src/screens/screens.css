@@ -1736,6 +1736,16 @@
   margin-bottom: 8px;
 }
 
+/*
+ * 줄이 많은 시는 글자를 줄여 잡는다. 카드가 정사각형이라 폭이 좁은 폰에서는
+ * 높이도 함께 줄어드는데, 여섯 줄짜리를 기본 크기로 넣으면 320px 이하 카드에서
+ * 마지막 줄이 잘린다. 시는 끝 행이 사라지면 다른 시가 된다.
+ */
+.poem-card__text[data-long='true'] .poem-card__line {
+  font-size: 17px;
+  line-height: 1.6;
+}
+
 .poem-card__line {
   font-family: var(--font-poem);
   font-weight: 500;

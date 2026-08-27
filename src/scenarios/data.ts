@@ -153,6 +153,19 @@ export const CLASS: ClassScenario = {
       lines: ['파도가 와요, 철썩', '내 발을 만져요', '내가 뒤로 가면', '파도도 따라와요.'],
       scene: `${S}/class/img_class_poem_wave.webp`,
     },
+    {
+      sentenceId: 'study_4',
+      title: '감기',
+      lines: [
+        '내 몸에',
+        '불덩이가 들어왔다.',
+        '뜨끈뜨끈.',
+        '불덩이를 따라',
+        '몹시 추운 사람도 들어왔다.',
+        '오들오들.',
+      ],
+      scene: `${S}/class/img_class_poem_cold.webp`,
+    },
   ],
 };
 
