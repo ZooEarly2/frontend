@@ -265,6 +265,17 @@
   place-items: center;
   width: 100%;
   height: 210px;
+  /*
+   * 줄어들지 않는다.
+   *
+   * 이게 말풍선이 동화책을 덮던 진짜 원인이었다. flex 아이템은 기본이
+   * `flex-shrink: 1` 이라, 아래 요소들(부엉이 170 + 말풍선 103 + 버튼 104)이
+   * 자리를 다 쓰면 이 상자가 210px 밑으로 쪼그라든다. 그런데 안의 동화책은
+   * 200px 그대로라 줄어든 상자 **밖으로 넘쳐** 흐르고, DOM 에서 나중에 오는
+   * 말풍선이 그 위에 그려진다. 상자끼리는 겹치지 않는데 내용물이 겹친 것이라,
+   * 사이 간격을 아무리 벌려도 고쳐지지 않았다.
+   */
+  flex: 0 0 auto;
   margin-top: auto;
   /*
    * 말풍선과 띄운다.
@@ -278,7 +289,7 @@
    * 5px 뿐이다. 화면 높이를 따라가게 해서 큰 폰에서는 넉넉히, 작은 폰에서는
    * 최소한만 띄운다.
    */
-  margin-bottom: clamp(10px, 3vh, 28px);
+  margin-bottom: clamp(20px, 5vh, 46px);
 }
 
 /* ── 뒤에서 도는 빛살 ───────────────────────────── */
@@ -700,6 +711,8 @@
   align-items: center;
   gap: 2px;
   width: 100%;
+  /* 여기도 줄어들면 부엉이가 잘린다 */
+  flex: 0 0 auto;
   animation: unlock-rise 320ms cubic-bezier(0.34, 1.1, 0.64, 1) 1890ms both;
 }
 
@@ -723,6 +736,7 @@
   z-index: 4;
   display: flex;
   flex-direction: column;
+  flex: 0 0 auto;
   gap: 6px;
   width: 100%;
   opacity: 0;
