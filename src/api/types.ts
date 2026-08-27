@@ -88,3 +88,26 @@ export type StoryScene = {
 };
 
 export type Story = { title: string; scenes: StoryScene[] };
+
+/**
+ * 앨범에 남은 동화.
+ *
+ * 삽화는 담기지 않는다 — 앱 번들의 정적 그림이고 장면의 `category` 하나로 결정된다.
+ * 그래서 목록에서도 `categories` 만 있으면 보석 줄을 그릴 수 있다.
+ */
+export type AlbumSummary = {
+  id: number;
+  title: string;
+  /** 동화를 만든 그때의 이름. 나중에 이름을 바꿔도 옛 표지는 그대로다. */
+  nickname: string;
+  createdAt: string;
+  categories: StorySceneCategory[];
+};
+
+export type AlbumDetail = {
+  id: number;
+  title: string;
+  nickname: string;
+  createdAt: string;
+  scenes: StoryScene[];
+};

@@ -16,7 +16,7 @@ import './screens.css';
 /** 메뉴 — 서버를 부르지 않는다. 기기에 저장된 값만 보여준다. */
 export function Menu() {
   const navigate = useNavigate();
-  const { profile, completed, soundOn, setSoundOn, resetAll } = useAppState();
+  const { profile, completed, resetAll } = useAppState();
 
   return (
     <Stage mood="meadow">
@@ -54,29 +54,15 @@ export function Menu() {
               <Icon name="next" size={18} className="menu-item__chevron" />
             </button>
 
-            {/*
-              읽어주기는 기본이 켜짐이다. 끄는 자리는 교실처럼 여럿이 한 화면을
-              볼 때다 — 소리가 방해가 되는 상황을 위해 두는 것이지, 아이가 굳이
-              찾아 켤 기능이 아니다.
-            */}
-            <button
-              type="button"
-              className="menu-item"
-              aria-pressed={soundOn}
-              onClick={() => setSoundOn(!soundOn)}
-            >
+            <button type="button" className="menu-item" onClick={() => navigate('/menu/album')}>
               <span className="menu-item__icon">
-                <Icon name={soundOn ? 'sound-on' : 'sound'} size={22} />
+                <Icon name="book" size={22} />
               </span>
               <span style={{ flex: 1 }}>
-                <span className="menu-item__title">말풍선 읽어주기</span>
-                <span className="menu-item__sub">
-                  {soundOn ? '캐릭터가 하는 말을 소리로 들려줘요' : '지금은 글자로만 보여줘요'}
-                </span>
+                <span className="menu-item__title">내 동화 앨범 보기</span>
+                <span className="menu-item__sub">지금까지 만든 동화를 다시 읽어요</span>
               </span>
-              <span className="switch" data-on={soundOn} aria-hidden>
-                <span className="switch__knob" />
-              </span>
+              <Icon name="next" size={18} className="menu-item__chevron" />
             </button>
           </div>
 

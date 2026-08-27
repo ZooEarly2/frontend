@@ -8,6 +8,7 @@ import { WorldIntro } from '@/screens/WorldIntro';
 import { Onboarding } from '@/screens/Onboarding';
 import { Home } from '@/screens/Home';
 import { Menu, ProfileEdit, ReviewCategory, ReviewList } from '@/screens/Menu';
+import { AlbumList, AlbumStory } from '@/screens/Album';
 import { DialoguePlay } from '@/screens/DialoguePlay';
 import { ClassPlay } from '@/screens/ClassPlay';
 import { StoryScreen } from '@/screens/Story';
@@ -58,6 +59,8 @@ export function App() {
             <Route path="/story" element={<Guarded><StoryScreen /></Guarded>} />
             <Route path="/menu" element={<Guarded><Menu /></Guarded>} />
             <Route path="/menu/profile" element={<Guarded><ProfileEdit /></Guarded>} />
+            <Route path="/menu/album" element={<Guarded><AlbumList /></Guarded>} />
+            <Route path="/menu/album/:id" element={<Guarded><AlbumStory /></Guarded>} />
             <Route path="/menu/review" element={<Guarded><ReviewList /></Guarded>} />
             <Route path="/menu/review/:category" element={<Guarded><ReviewCategory /></Guarded>} />
             <Route path="*" element={<Navigate to="/" replace />} />

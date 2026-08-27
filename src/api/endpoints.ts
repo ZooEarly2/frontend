@@ -1,5 +1,7 @@
 import { getJson, postForm, postJson } from './client';
 import type {
+  AlbumDetail,
+  AlbumSummary,
   ExpressionFeedback,
   NativeLanguage,
   PronunciationResult,
@@ -117,4 +119,49 @@ export function story(
   signal?: AbortSignal,
 ): Promise<Story> {
   return postJson<Story>('/ai/story', { childName, scenes }, { timeoutMs: T_STORY, signal });
+}
+
+
+/* ── 동화 앨범 ────────────────────────────────────
+ *
+ * 여기만 `/ai/*` 가 아니다. 앞의 것들은 추론 서버로 중계되지만 앨범은 게이트웨이가
+ * 직접 가진 데이터다 — 이름이 뜻과 맞아야 나중에 읽는 사람이 헷갈리지 않는다.
+ *
+ * `childId` 는 기기가 만든 UUID 다(store/childId.ts). 로그인이 없어 이 값이 곧
+ * 열쇠이므로 조회할 때도 반드시 함께 보낸다.
+ */
+
+/**
+ * 동화를 앨범에 남긴다.
+ *
+ * **아이가 동화를 이미 보고 있을 때 부른다.** 저장이 실패해도 읽는 일을 막지 않으려는
+ * 것이다 — 읽기와 남기기가 서로를 붙잡으면, 저장이 늦는 날 아이가 동화를 못 본다.
+ */
+export function saveAlbum(
+  childId: string,
+  nickname: string,
+  story: Story,
+  signal?: AbortSignal,
+): Promise<{ id: number }> {
+  return postJson<{ id: number }>(
+    '/albums',
+    { childId, nickname, title: story.title, scenes: story.scenes },
+    { timeoutMs: T_DEFAULT, signal },
+  );
+}
+
+/** 이 아이가 남긴 동화 목록. 최신순. */
+export function listAlbums(childId: string, signal?: AbortSignal): Promise<AlbumSummary[]> {
+  return getJson<AlbumSummary[]>(`/albums?childId=${encodeURIComponent(childId)}`, {
+    timeoutMs: T_DEFAULT,
+    signal,
+  });
+}
+
+/** 한 편 전체. 이걸로 동화 화면을 그대로 다시 그린다. */
+export function getAlbum(id: number, childId: string, signal?: AbortSignal): Promise<AlbumDetail> {
+  return getJson<AlbumDetail>(`/albums/${id}?childId=${encodeURIComponent(childId)}`, {
+    timeoutMs: T_DEFAULT,
+    signal,
+  });
 }
