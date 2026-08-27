@@ -444,17 +444,30 @@ export function BlankSentence({
 const CONFETTI_COLORS = ['#F2A0A8', '#FFD36E', '#7FD1C1', '#A9D6F5', '#C3AEF0'];
 
 /** 잘했을 때만 뿌린다. 자주 쓰면 특별하지 않게 된다. */
-export function Confetti({ pieces = 26 }: { pieces?: number }) {
+export function Confetti({
+  pieces = 26,
+  /**
+   * 첫 조각이 떨어지기 시작하는 시각(ms).
+   *
+   * 축하가 **사건**일 때 쓴다 — 보석이 터지는 순간에 맞춰 뿌리려면 그 프레임에
+   * 출발해야 한다. 처음부터 떨어지면 축하가 사건이 아니라 배경이 된다.
+   * 기본값 0 이라 다른 화면은 예전 그대로다.
+   */
+  startMs = 0,
+}: {
+  pieces?: number;
+  startMs?: number;
+}) {
   const bits = useMemo(
     () =>
       Array.from({ length: pieces }, (_, i) => ({
         key: i,
         left: `${Math.random() * 100}%`,
-        delay: `${Math.random() * 0.7}s`,
+        delay: `${startMs + Math.random() * 700}ms`,
         duration: `${1.8 + Math.random() * 1.4}s`,
         color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
       })),
-    [pieces],
+    [pieces, startMs],
   );
   return (
     <div className="confetti" aria-hidden>

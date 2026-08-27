@@ -706,13 +706,21 @@
   animation: fall linear forwards;
 }
 
+/*
+ * 끝 프레임의 opacity 가 0.9 였다. `forwards` 라 마지막 값이 그대로 굳는데,
+ * 화면 밖(115vh)이라 안 보였을 뿐 조각은 계속 살아 있었다. 컨테이너가 뷰포트보다
+ * 작은 화면에서는 그게 화면 한복판에 못 박힌 얼룩이 된다. 0 으로 꺼서 끝낸다.
+ */
 @keyframes fall {
   0% {
     transform: translateY(0) rotate(0deg);
     opacity: 1;
   }
+  92% {
+    opacity: 1;
+  }
   100% {
     transform: translateY(115vh) rotate(720deg);
-    opacity: 0.9;
+    opacity: 0;
   }
 }

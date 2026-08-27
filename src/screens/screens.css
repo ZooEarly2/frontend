@@ -198,6 +198,20 @@
 /*
  * 스테이지를 덮는 축하 화면. 아래 홈이 그대로 있고 이 층만 걷힌다 —
  * 화면을 갈아끼우면 "다른 데로 갔다" 로 읽혀서 돌아온 기분이 사라진다.
+ *
+ * 연출의 순서는 이렇다.
+ *   넷이 사방에서 날아와 마름모로 앉는다 → **넷이 함께 떠 있다(230ms)** →
+ *   동시에 가운데로 빨려든다 → 꽂힌 채 멈춘다(69ms) → 터진다 →
+ *   동화책이 폭발에서 튀어나온다 → 부엉이가 말을 건다
+ *
+ * **가운데의 "넷이 함께 떠 있는 230ms" 가 이 연출의 전부다.** 예전에는 넷이
+ * 일직선으로 날아와 같은 한 점으로 붕괴했고, 1번이 사라질 때 4번이 겨우
+ * 도착했다. 넷이 흩어진 채 함께 보이는 구간이 158ms 뿐이라 지각 하한(약
+ * 230ms)에 못 미쳤다 — 이 앱이 축하하려는 문장(네 개를 다 모았다)이
+ * 연출 때문에 지워지고 있었던 셈이다.
+ *
+ * 총 길이는 예전과 같다(버튼 2.2초). 늘리는 대신 초당 사건 수를 올렸다.
+ * 이 화면은 등교일마다 나오므로 3초를 넘기면 사흘이면 벽지가 된다.
  */
 .unlock {
   position: absolute;
@@ -216,64 +230,22 @@
     rgba(255, 241, 226, 0.96) 46%,
     rgba(253, 232, 233, 0.97) 100%
   );
-  animation: unlock-in 0.45s ease both;
+  animation: unlock-in 240ms cubic-bezier(0, 0, 0.3, 1) both;
 }
 
 @keyframes unlock-in {
   from {
     opacity: 0;
   }
-  to {
-    opacity: 1;
-  }
 }
 
-/* 뒤에서 천천히 도는 빛살 — 시선을 가운데로 모은다 */
-.unlock__rays {
-  position: absolute;
-  top: 30%;
-  left: 50%;
-  width: 720px;
-  height: 720px;
-  margin: -360px 0 0 -360px;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(255, 211, 110, 0.42) 0deg 8deg,
-    transparent 8deg 30deg
-  );
-  opacity: 0;
-  animation: rays-in 0.7s ease 0.75s forwards, spin 14s linear 0.75s infinite;
-  pointer-events: none;
-}
-
-@keyframes rays-in {
-  to {
-    opacity: 0.75;
-  }
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* 가운데의 따뜻한 빛 무리 */
-.unlock__glow {
-  position: absolute;
-  top: 30%;
-  left: 50%;
-  width: 340px;
-  height: 340px;
-  margin: -170px 0 0 -170px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 236, 179, 0.9) 0%, rgba(255, 236, 179, 0) 70%);
-  opacity: 0;
-  animation: rays-in 0.6s ease 0.8s forwards;
-  pointer-events: none;
-}
-
+/*
+ * 무대. 빛살·빛무리도 이 안에 둔다.
+ *
+ * 예전에는 `.unlock` 기준 `top: 30%` 에 놓았는데, 실제 폭발 지점(무대 중심)은
+ * 화면 높이에 따라 39~46% 사이를 오간다. 720px 원반이라 어긋나도 덮여서
+ * 티가 안 났을 뿐이다. 무대 안에 넣으면 폰 높이가 어떻든 중심이 맞는다.
+ */
 .unlock__stage {
   position: relative;
   display: grid;
@@ -283,89 +255,407 @@
   margin-top: auto;
 }
 
-/* ── 보석이 가운데로 모인다 ─────────────────────── */
+/* ── 뒤에서 도는 빛살 ───────────────────────────── */
 
-.unlock__gems {
-  position: absolute;
-  display: grid;
-  place-items: center;
-}
-
-.unlock__gem {
+/*
+ * `repeating-` 이 빠져 있었다. 그냥 `conic-gradient` 는 마지막 스톱(30deg)
+ * 이후 330도를 그 색(transparent)으로 채운다 — 720px 원반이 14초에 한 바퀴
+ * 도는 동안 빛살 한 줄기만 지나갔다. 사실상 아무것도 안 보였다.
+ *
+ * 경계를 1.5도 페이드시킨다. iOS 의 conic 안티에일리어싱이 나빠서 하드
+ * 엣지를 두면 계단이 눈에 띈다. 정적 페인트라 비용은 0 이다.
+ *
+ * 무한히 돌지 않는다. 90도만 돌고 감속해 선다(WCAG 2.2.2 — 5초를 넘는
+ * 자동 움직임에는 멈출 수단이 있어야 한다). 시작이 느린 곡선을 쓰는 이유도
+ * 있다: 스포크 14개 × 각속도 ÷ 360 이 깜빡임 빈도가 되는데, 3Hz 를 넘으면
+ * 광과민성 발작 위험 구간(WCAG 2.3.1)에 들어간다. 이 곡선은 최고 약
+ * 37deg/s 라 1.4Hz 다.
+ */
+.unlock__rays {
   grid-area: 1 / 1;
-  display: block;
-  /* 제자리(--from-x)에서 출발해 가운데로 빨려 들어간다 */
-  animation: gem-gather 0.95s cubic-bezier(0.5, 0, 0.2, 1) var(--delay) both;
-}
-
-@keyframes gem-gather {
-  0% {
-    transform: translate(var(--from-x), 40px) scale(1);
-    opacity: 0;
-  }
-  25% {
-    transform: translate(var(--from-x), 0) scale(1);
-    opacity: 1;
-  }
-  70% {
-    transform: translate(0, 0) scale(1.12);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(0, 0) scale(0.2);
-    opacity: 0;
-  }
-}
-
-/* 보석이 모인 자리에서 터지는 빛 */
-.unlock__burst {
-  position: absolute;
-  width: 60px;
-  height: 60px;
+  width: 380px;
+  height: 380px;
   border-radius: 50%;
-  border: 4px solid var(--sunshine);
+  background:
+    radial-gradient(circle, rgba(255, 250, 236, 1) 0 70px, rgba(255, 250, 236, 0) 128px),
+    repeating-conic-gradient(
+      from 0deg,
+      rgba(255, 211, 110, 0.32) 0deg,
+      rgba(255, 211, 110, 0.32) 4deg,
+      rgba(255, 211, 110, 0) 5.5deg,
+      rgba(255, 211, 110, 0) 25.714deg
+    );
   opacity: 0;
-  animation: burst 0.75s cubic-bezier(0.16, 1, 0.3, 1) 1.05s both;
+  animation:
+    unlock-fade-in 400ms cubic-bezier(0, 0, 0.3, 1) 60ms forwards,
+    rays-turn 4400ms cubic-bezier(0.33, 0, 0.2, 1) 60ms forwards;
   pointer-events: none;
 }
 
-@keyframes burst {
-  0% {
-    transform: scale(0.4);
-    opacity: 1;
-    border-width: 12px;
-  }
-  100% {
-    transform: scale(5.4);
-    opacity: 0;
-    border-width: 1px;
+@keyframes unlock-fade-in {
+  to {
+    opacity: var(--to, 0.4);
   }
 }
 
-/* 그 자리에 동화책이 남는다 */
+@keyframes rays-turn {
+  to {
+    transform: rotate(90deg);
+  }
+}
+
+/* 가운데의 따뜻한 빛 무리 */
+.unlock__glow {
+  grid-area: 1 / 1;
+  width: 300px;
+  height: 300px;
+  --to: 0.82;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 236, 179, 0.9) 0%, rgba(255, 236, 179, 0) 70%);
+  opacity: 0;
+  animation: unlock-fade-in 360ms cubic-bezier(0, 0, 0.3, 1) 120ms forwards;
+  pointer-events: none;
+}
+
 /*
- * 동화 표지 그림은 투명 배경이 아니라 종이색으로 구워져 있다(투명하게 두면 예전에
- * 검게 뜨는 문제가 있었다). 그대로 얹으면 축하 화면의 따뜻한 바탕 위에 네모가
- * 떠 보이므로, 아예 액자에 넣어 의도한 모양으로 만든다.
+ * 흔들리는 것과 안 흔들리는 것을 가른다. 배경 빛까지 흔들면 카메라가
+ * 흔들린 게 아니라 화면 전체가 밀린 것으로 보인다.
  */
-.unlock__book {
+.unlock__shake {
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+  animation: unlock-shake 380ms cubic-bezier(0.33, 0, 0.2, 1) 1410ms both;
+}
+
+/*
+ * 충격의 감쇠는 선형이 아니다. 게임 쪽에서 trauma 제곱으로 부르는 것 —
+ * 처음이 크고 뒤로 갈수록 급히 잦아든다. 6px / 1.2도에서 시작한다.
+ */
+@keyframes unlock-shake {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  12% {
+    transform: translate(-6px, 3px) rotate(-1.2deg);
+  }
+  26% {
+    transform: translate(5px, -3px) rotate(1deg);
+  }
+  42% {
+    transform: translate(-3.4px, 2px) rotate(-0.62deg);
+  }
+  60% {
+    transform: translate(2px, -1.2px) rotate(0.34deg);
+  }
+  78% {
+    transform: translate(-1px, 0.6px) rotate(-0.14deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+}
+
+/* ── 보석 넷이 사방에서 날아와 마름모로 앉는다 ──── */
+
+.unlock__gems {
+  grid-area: 1 / 1;
   position: relative;
+  display: grid;
+  place-items: center;
+  width: 0;
+  height: 0;
+}
+
+/*
+ * 자리는 위·오른쪽·아래·왼쪽. 한 줄로 세우지 않는다 — 마름모로 앉아
+ * 가운데를 비운다. 그 빈 자리가 빛이 차오르는 곳이고, 그래서 다음에
+ * 넷이 빨려들 자리가 화면에 미리 보인다.
+ */
+.unlock__gem {
+  position: absolute;
+  display: block;
+  animation:
+    gem-fly 420ms var(--delay) both,
+    gem-merge 300ms cubic-bezier(0.3, 0, 0.8, 0.15) 1170ms forwards;
+}
+
+/*
+ * 뒤로 한 번 뺐다가(anticipation) 돌진해서 살짝 지나쳤다 안착한다.
+ * 90ms/950ms = 9.5% 였던 간격을 120ms/420ms = 28.6% 로 벌렸다.
+ * 25~33% 가 "겹치면서도 하나·둘·셋·넷으로 세어지는" 대역이다.
+ */
+@keyframes gem-fly {
+  0% {
+    transform: translate(var(--fx), var(--fy)) rotate(var(--spin)) scale(0.72);
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.33, 0, 0.67, 0.35);
+  }
+  22% {
+    transform: translate(calc(var(--fx) * 1.14), calc(var(--fy) * 1.14)) rotate(var(--spin))
+      scale(0.9);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
+  }
+  71% {
+    transform: translate(calc(var(--lx) * 1.1), calc(var(--ly) * 1.1)) rotate(0deg) scale(1.16);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.34, 1.3, 0.64, 1);
+  }
+  100% {
+    transform: translate(var(--lx), var(--ly)) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+/*
+ * 넷이 다 앉은 뒤 230ms 동안 아무것도 움직이지 않는다.
+ * 그 다음 동시에 가운데로 빨려든다 — 모이는 동안은 넷을 세어야 하지만,
+ * 합쳐지는 것은 사건 하나여야 해서 여기만 시차가 0이다.
+ * 57% 에 꽂히고 80% 까지 멈춰 있다(히트스톱 69ms). 그 정지가 다음 프레임의
+ * 폭발을 "터졌다" 로 만든다 — 게임 쪽에서 40~80ms 로 수렴한 값이다.
+ */
+@keyframes gem-merge {
+  0% {
+    transform: translate(var(--lx), var(--ly)) scale(1);
+    opacity: 1;
+  }
+  57% {
+    transform: translate(0, 0) scale(0.86);
+    opacity: 1;
+    animation-timing-function: steps(1, end);
+  }
+  80% {
+    transform: translate(0, 0) scale(0.86);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.3, 0, 0.8, 0.15);
+  }
+  100% {
+    transform: translate(0, 0) scale(0.1);
+    opacity: 0;
+  }
+}
+
+/* 마름모 한가운데가 달아오른다 — 넷이 빨려들 자리를 미리 알려준다 */
+.unlock__core {
+  grid-area: 1 / 1;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(255, 226, 150, 0) 68%);
+  opacity: 0;
+  transform: scale(0.4);
+  animation: core-hot 630ms cubic-bezier(0.3, 0, 0.8, 0.15) 780ms forwards;
+  pointer-events: none;
+}
+
+@keyframes core-hot {
+  to {
+    opacity: 0.95;
+    transform: scale(1.35);
+  }
+}
+
+/* ── 터진다 ─────────────────────────────────────── */
+
+/*
+ * 전면 흰 섬광을 쓰지 않는다. 크림색 배경(상대휘도 약 0.93) 위에 흰색을
+ * 0.72 로 덮어도 휘도 변화가 0.05 라 사람 눈에 거의 안 보이는데,
+ * 430×930 짜리 레이어는 저가 안드로이드(DPR 3)에서 14MB 를 차지한다.
+ * 폭발 지점에 모인 320px 짜리 국소 발광이 실제로 "터졌다" 로 읽히고
+ * 비용은 10분의 1이다.
+ */
+.unlock__bloom {
+  grid-area: 1 / 1;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 1) 0 18%,
+    rgba(255, 238, 190, 0.85) 45%,
+    rgba(255, 238, 190, 0) 72%
+  );
+  opacity: 0;
+  animation: bloom 180ms linear 1410ms forwards;
+  pointer-events: none;
+}
+
+/* 한 번만 켜졌다 꺼진다. 1초에 세 번을 넘는 깜빡임은 발작을 유발할 수 있다 */
+@keyframes bloom {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  39% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+/*
+ * 충격파 두 겹. `::after` 로 만들지 않는다 — 가상요소는 부모의 transform 과
+ * opacity 를 곱하기 때문에, 두 번째 파동이 첫 파동에 딸려 나가며 화면 밖으로
+ * 튀는 거대한 호가 된다. 형제로 두면 각자 중심에서 나간다.
+ */
+.unlock__shock {
+  grid-area: 1 / 1;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 211, 110, 0.9);
+  opacity: 0;
+  animation: shock 480ms cubic-bezier(0.06, 0.86, 0.16, 1) 1410ms forwards;
+  pointer-events: none;
+}
+
+.unlock__shock--late {
+  border-color: rgba(255, 255, 255, 0.85);
+  border-width: 2px;
+  animation-delay: 1500ms;
+  animation-duration: 400ms;
+}
+
+/*
+ * border-width 를 애니메이션하지 않는다. 하나의 키프레임 안에 비합성
+ * 속성이 섞이면 브라우저가 그 애니메이션 전체를 메인 스레드로 내린다 —
+ * transform 과 opacity 까지 함께. 굵기는 고정하고 크기만 키운다.
+ */
+@keyframes shock {
+  0% {
+    opacity: 0;
+    transform: scale(0.1);
+  }
+  6% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.3);
+  }
+}
+
+/*
+ * 보석 색 파편. 네 색을 그대로 써서 "네 색이 하나로 터졌다" 를 색으로
+ * 말한다. 예전 폭발은 흰색·노랑뿐이라, 아이가 네 가지 다른 일을 해서 모은
+ * 네 색이 절정에 하나도 안 쓰였다.
+ */
+.unlock__shards {
+  grid-area: 1 / 1;
+  position: relative;
+  width: 0;
+  height: 0;
+}
+
+.unlock__shard {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 8px;
+  height: 9px;
+  border-radius: 2px;
+  opacity: 0;
+  /* 8px 조각 열넷은 미리 레이어로 올려도 메모리가 사실상 0 이다.
+     폭발 프레임에 레이어 열넷을 한꺼번에 만드는 편이 훨씬 비싸다 */
+  transform: translateZ(0);
+  animation:
+    shard-fly var(--t) cubic-bezier(0.1, 0.7, 0.2, 1) var(--d) forwards,
+    shard-fade var(--t) linear var(--d) forwards;
+  pointer-events: none;
+}
+
+@keyframes shard-fly {
+  0% {
+    transform: rotate(var(--a)) translateX(0) rotate(calc(var(--a) * -1)) scale(0.3);
+  }
+  100% {
+    transform: rotate(var(--a)) translateX(var(--r)) rotate(calc(var(--a) * -1)) scale(0.85);
+  }
+}
+
+@keyframes shard-fade {
+  0% {
+    opacity: 0;
+  }
+  6%,
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ── 폭발에서 튀어나오는 동화책 ─────────────────── */
+
+/*
+ * 동화 표지 그림은 투명 배경이 아니라 종이색으로 구워져 있다(투명하게 두면
+ * 예전에 검게 뜨는 문제가 있었다). 그대로 얹으면 축하 화면의 따뜻한 바탕
+ * 위에 네모가 떠 보이므로, 아예 액자에 넣어 의도한 모양으로 만든다.
+ *
+ * isolation 을 명시한다 — 착지 그림자를 z-index: -1 로 뒤에 두는데,
+ * 스태킹 컨텍스트가 없으면 그림자가 배경 빛무리 아래로 빠진다.
+ */
+.unlock__bookframe {
+  grid-area: 1 / 1;
+  position: relative;
+  isolation: isolate;
+  animation: book-out 520ms 1420ms both;
+}
+
+.unlock__bookframe img {
+  display: block;
   height: 190px;
   width: auto;
   border-radius: var(--r-md);
   border: 5px solid var(--surface);
-  box-shadow: 0 12px 22px rgba(160, 120, 70, 0.3);
-  animation:
-    book-appear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 1.15s both,
-    bob 3.6s ease-in-out 1.75s infinite;
 }
 
-@keyframes book-appear {
-  from {
-    transform: scale(0.3) rotate(-14deg);
-    opacity: 0;
-  }
+/* 착지 그림자는 책보다 늦게 짙어진다 — 무게가 늦게 실리는 것이 물리다 */
+.unlock__bookframe::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 8%;
+  right: 8%;
+  bottom: -10px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(160, 120, 70, 0.4) 0%, rgba(160, 120, 70, 0) 70%);
+  opacity: 0;
+  animation: shadow-drop 300ms ease 1660ms forwards;
+}
+
+@keyframes shadow-drop {
   to {
+    opacity: 1;
+  }
+}
+
+/*
+ * 폭발에서 튀어나와 세 박자로 앉는다. 한 번에 제자리로 오면 "나타났다" 지
+ * "튀어나왔다" 가 아니다.
+ */
+@keyframes book-out {
+  0% {
+    transform: scale(0.24) rotate(-16deg);
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0, 0.4, 0, 1);
+  }
+  46% {
+    transform: scale(1.13) rotate(4deg);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  74% {
+    transform: scale(0.97) rotate(-1.4deg);
+    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  100% {
     transform: scale(1) rotate(0deg);
     opacity: 1;
   }
@@ -373,6 +663,10 @@
 
 /* ── 부엉이와 버튼 ──────────────────────────────── */
 
+/*
+ * 책이 앉고 230ms 뒤에 말을 건다. 그 전에 화면 아래에서 뭔가 튀어오르면
+ * 아이는 "무엇을 받았는지" 대신 움직이는 쪽을 본다.
+ */
 .unlock__talk {
   position: relative;
   display: flex;
@@ -380,23 +674,27 @@
   align-items: center;
   gap: 2px;
   width: 100%;
-  animation: rise 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) 1.5s both;
+  animation: unlock-rise 320ms cubic-bezier(0.34, 1.1, 0.64, 1) 1890ms both;
 }
 
-@keyframes rise {
+@keyframes unlock-rise {
   from {
     transform: translateY(46px);
     opacity: 0;
   }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
 }
 
+/*
+ * 보이는 것과 눌리는 것을 320ms 떼어 놓는다.
+ *
+ * 예전에는 한 속성이 opacity 와 pointer-events 를 함께 열었다. 그런데
+ * pointer-events 는 전환되지 않아서 버튼이 아직 반투명한 상태에서 이미
+ * 눌렸다. 이 화면은 볼 것이 많아 아이가 연타하게 되는데, 그 연타 중
+ * 하나가 그 순간에 착지하면 축하가 통째로 증발한다.
+ */
 .unlock__actions {
   position: relative;
-  z-index: 1;
+  z-index: 4;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -404,14 +702,68 @@
   opacity: 0;
   transform: translateY(14px);
   pointer-events: none;
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  transition:
+    opacity 260ms cubic-bezier(0.05, 0.7, 0.1, 1),
+    transform 260ms cubic-bezier(0.05, 0.7, 0.1, 1);
 }
 
-/* 연출이 끝난 뒤에야 누를 수 있다 — 다 보기 전에 넘기면 무엇을 받았는지 못 본다 */
-.unlock__actions[data-ready='true'] {
+.unlock__actions[data-shown='true'] {
   opacity: 1;
   transform: translateY(0);
+}
+
+.unlock__actions[data-ready='true'] {
   pointer-events: auto;
+}
+
+/*
+ * 움직임을 줄여 달라고 한 기기.
+ *
+ * 축하를 지우지 않는다. tokens.css 의 전역 킬스위치는 모든 애니메이션을
+ * 0.001ms 로 만드는데, 그러면 보석은 마지막 키프레임(opacity 0)으로 점프해
+ * 아예 안 보인다 — 움직임이 줄어드는 게 아니라 보상이 삭제된다.
+ * 그래서 여기서 하나하나 되돌린다: 움직임은 끄되 보석 넷과 동화책은
+ * 제자리에 또렷이 남기고, 부드럽게 떠오르기만 한다.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .unlock__rays,
+  .unlock__glow,
+  .unlock__core,
+  .unlock__bloom,
+  .unlock__shock,
+  .unlock__shards,
+  .unlock .confetti {
+    display: none !important;
+  }
+
+  .unlock__shake {
+    animation: none !important;
+  }
+
+  .unlock__gem {
+    /* 날아오지 않는다. 앉을 자리에 그냥 나타난다 */
+    transform: translate(var(--lx), var(--ly));
+    animation: rm-appear 300ms ease var(--delay) both !important;
+  }
+
+  .unlock__bookframe {
+    animation: rm-appear 300ms ease 900ms both !important;
+  }
+
+  .unlock__bookframe::after {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  .unlock__talk {
+    animation: rm-appear 300ms ease 1200ms both !important;
+  }
+
+  @keyframes rm-appear {
+    from {
+      opacity: 0;
+    }
+  }
 }
 
 /* ── 잠금이 풀린 동화 버튼 ──────────────────────── */
