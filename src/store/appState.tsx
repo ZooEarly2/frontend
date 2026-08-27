@@ -48,11 +48,29 @@ type Persisted = {
    * 끄는 자리는 교실처럼 여럿이 한 화면을 볼 때다. 하루가 지나도 남는다(취향이라서).
    */
   soundOn: boolean;
+  /**
+   * 며칠째 이어서 하고 있나.
+   *
+   * 세는 것은 **접속이 아니라 학교생활**이다. 앱을 열기만 한 날은 안 센다 —
+   * 그러면 숫자가 "왔다" 를 세게 되고, 열었다 바로 끄는 날도 쌓인다.
+   * 시나리오를 **하나라도** 마치면 그날은 한 일이 있는 것으로 본다.
+   * 넷을 다 하라고 하면 문턱이 너무 높다.
+   */
+  streak: number;
+  /** 마지막으로 하나라도 마친 날. 이 값과 오늘을 견줘 이어졌는지 본다 */
+  streakDate: string | null;
 };
 
 function todayKey(): string {
   const now = new Date();
   return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+}
+
+/** 그 날짜 키의 어제 */
+function yesterdayOf(key: string): string {
+  const [y, m, d] = key.split('-').map(Number);
+  const day = new Date(y, m - 1, d - 1);
+  return `${day.getFullYear()}-${day.getMonth() + 1}-${day.getDate()}`;
 }
 
 const EMPTY: Persisted = {
@@ -62,6 +80,8 @@ const EMPTY: Persisted = {
   scenes: {},
   unlockSeen: false,
   soundOn: true,
+  streak: 0,
+  streakDate: null,
 };
 
 function read(): Persisted {
@@ -71,7 +91,15 @@ function read(): Persisted {
     const parsed = JSON.parse(raw) as Persisted;
     // 날짜가 지났으면 진행도와 기록만 비운다. 프로필과 소리 설정은 취향이라 남긴다.
     if (parsed.dateKey !== todayKey()) {
-      return { ...EMPTY, profile: parsed.profile ?? null, soundOn: parsed.soundOn !== false };
+      // 진행도만 비운다. 연속 기록은 **날짜가 바뀌어도 남아야** 한다 —
+      // 여기서 같이 지우면 매일 아침 0이 되어 셀 수가 없다.
+      return {
+        ...EMPTY,
+        profile: parsed.profile ?? null,
+        soundOn: parsed.soundOn !== false,
+        streak: typeof parsed.streak === 'number' ? parsed.streak : 0,
+        streakDate: parsed.streakDate ?? null,
+      };
     }
     return {
       profile: parsed.profile ?? null,
@@ -81,6 +109,8 @@ function read(): Persisted {
       unlockSeen: parsed.unlockSeen === true,
       // 저장된 적 없는(=예전 버전에서 온) 값은 켜짐으로 본다
       soundOn: parsed.soundOn !== false,
+      streak: typeof parsed.streak === 'number' ? parsed.streak : 0,
+      streakDate: parsed.streakDate ?? null,
     };
   } catch {
     return EMPTY;
@@ -98,6 +128,14 @@ function write(state: Persisted) {
 type AppStateValue = {
   profile: Profile | null;
   completed: CategoryId[];
+  /**
+   * 며칠째 이어서 하고 있나. 아직 한 번도 안 했거나 끊겼으면 0 이다.
+   *
+   * 저장된 숫자를 그대로 주지 않는다 — 닷새 쉰 아이의 저장값에는 아직 예전
+   * 숫자가 들어 있고, 그건 다음에 하나를 마칠 때 1로 되돌아간다. 그 사이에
+   * 옛 숫자를 화면에 띄우면 이미 끊긴 기록을 살아 있는 것처럼 보여주게 된다.
+   */
+  streak: number;
   storyScenes: StorySceneRecord[] | null;
   saveProfile: (profile: Profile) => void;
   /** 시나리오를 마쳤을 때 진행도와 동화 기록을 함께 남긴다. */
@@ -141,12 +179,36 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const completeCategory = useCallback((category: CategoryId, scene: StorySceneRecord) => {
-    setState((prev) => ({
-      ...prev,
-      dateKey: todayKey(),
-      completed: prev.completed.includes(category) ? prev.completed : [...prev.completed, category],
-      scenes: { ...prev.scenes, [category]: scene },
-    }));
+    setState((prev) => {
+      const today = todayKey();
+      /*
+       * 연속 기록은 **여기서** 올린다. 앱을 열 때가 아니라 하나를 마쳤을 때다.
+       *
+       * 하루에 여러 개를 마쳐도 한 번만 올라간다(streakDate 가 이미 오늘이면
+       * 그대로 둔다). 어제 했으면 이어지고, 그보다 오래 쉬었으면 1일차로
+       * 되돌아간다 — 주말을 건너뛰거나 하루를 봐주지 않는다.
+       *
+       * 그래서 월요일에는 대부분 1일차가 된다. 그렇게 하기로 정한 것이다.
+       * 학교 가는 날만 세게 하려면 yesterdayOf 자리를 평일 계산으로 바꾸면 된다.
+       */
+      const streak =
+        prev.streakDate === today
+          ? prev.streak
+          : prev.streakDate === yesterdayOf(today)
+            ? prev.streak + 1
+            : 1;
+
+      return {
+        ...prev,
+        dateKey: today,
+        completed: prev.completed.includes(category)
+          ? prev.completed
+          : [...prev.completed, category],
+        scenes: { ...prev.scenes, [category]: scene },
+        streak,
+        streakDate: today,
+      };
+    });
   }, []);
 
   const markStoryUnlockSeen = useCallback(() => {
@@ -187,9 +249,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AppStateValue>(() => {
     const isCompleted = (category: CategoryId) => state.completed.includes(category);
     const allDone = CATEGORY_ORDER.every((c) => state.scenes[c]);
+    /*
+     * 오늘 했으면 살아 있고, 어제 했으면 오늘 이어갈 수 있으니 아직 살아 있다.
+     * 그보다 오래됐으면 끊긴 것이라 0 으로 본다.
+     */
+    const today = todayKey();
+    const alive = state.streakDate === today || state.streakDate === yesterdayOf(today);
+
     return {
       profile: state.profile,
       completed: state.completed,
+      streak: alive ? state.streak : 0,
       // 4장면이 다 모여야 동화를 만들 수 있다. 하나라도 없으면 null 이다.
       storyScenes: allDone ? CATEGORY_ORDER.map((c) => state.scenes[c] as StorySceneRecord) : null,
       storyUnlockPending: allDone && !state.unlockSeen,
