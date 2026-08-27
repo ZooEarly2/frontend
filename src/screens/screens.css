@@ -468,6 +468,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  /* 상단바에 바짝 붙어 있어 숨이 막혔다. 한 칸 내려 띄운다 */
+  margin-top: 20px;
   padding: 16px 18px;
   border-radius: var(--r-lg);
   background: linear-gradient(135deg, var(--coral-tint) 0%, var(--sunshine-tint) 100%);
