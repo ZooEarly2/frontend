@@ -30,6 +30,37 @@ import './screens.css';
  */
 let cheeredStreak = 0;
 
+/**
+ * 연속을 나타내는 불꽃.
+ *
+ * 숫자만 두면 "연속" 이 안 읽힌다 — 그냥 숫자 하나다. 이 자리에 불꽃을 두는 것은
+ * Duolingo·Snapchat·Apple Fitness 가 공통으로 쓰는 표기라, 어른은 보자마자 알고
+ * 아이는 며칠 만에 배운다.
+ *
+ * 이모지(🔥)를 안 쓰는 이유는 보석과 같다 — 기기마다 모양과 색이 달라 팔레트와
+ * 어긋난다. 직접 그리면 어디서든 같은 불꽃이 뜬다.
+ *
+ * 칠 위에 어두운 선을 덮는 것(paint-order)도 보석과 같은 방식이다. 코랄딥은 흰
+ * 바탕에서 2.69:1 이라 그 자체로는 흐릿한데, 바깥에 잉크색 선이 남으면 또렷해진다.
+ */
+function Flame() {
+  return (
+    <svg className="streak-chip__flame" width="13" height="13" viewBox="0 0 24 24" aria-hidden>
+      <path
+        d="M12 2.4c3.3 3.7 5.4 6.4 5.4 9.2a5.4 5.4 0 1 1-10.8 0c0-2.8 2.1-5.5 5.4-9.2z"
+        style={{ fill: 'var(--coral-deep)', stroke: 'var(--ink)', paintOrder: 'stroke' }}
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      {/* 안쪽 심지 — 두 겹이라야 평평한 물방울이 아니라 불꽃으로 읽힌다 */}
+      <path
+        d="M12 12.6c1.4 1.6 2.3 2.7 2.3 3.8a2.3 2.3 0 1 1-4.6 0c0-1.1.9-2.2 2.3-3.8z"
+        style={{ fill: 'var(--sunshine)' }}
+      />
+    </svg>
+  );
+}
+
 export function Home() {
   const navigate = useNavigate();
   const {
@@ -119,6 +150,7 @@ export function Home() {
                     다르다. 눈에 안 보이는 글로 따로 적어 준다.
                   */}
                   <span className="sr-only">{streak}일째 이어서 하고 있어요</span>
+                  <Flame />
                   <span aria-hidden>
                     <span className="streak-chip__num">{streak}</span>일째
                   </span>
