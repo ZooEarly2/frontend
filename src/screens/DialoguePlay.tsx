@@ -189,6 +189,19 @@ export function DialoguePlay() {
   const lastErrorStatus = useRef<number | null>(null);
   /** 퀴즈에서 소리가 기준을 넘은 프레임 수 */
   const quizHeard = useRef(0);
+  /**
+   * 계기가 한 번이라도 움직였나.
+   *
+   * **"조용했다" 와 "못 쟀다" 는 다른 일이다.** 아이폰 사파리는 AudioContext 를
+   * 멈춘 채로 만들어서, 깨우지 못하면 소리 크기가 정확히 0 에 붙박인다. 그러면
+   * 아이가 아무리 크게 말해도 "안 들렸다" 가 되어 영영 되묻게 된다.
+   *
+   * 그래서 최댓값을 따로 본다. 조금이라도 움직였으면 계기는 살아 있는 것이고
+   * 그때의 침묵은 진짜 침묵이다. 내내 0 이었으면 잴 수가 없었던 것이니
+   * **들은 것으로 친다** — 마이크가 막힌 아이를 통과시키는 것과 같은 규칙이다.
+   * 잴 수 없는 것으로 아이를 붙잡아 두지 않는다.
+   */
+  const quizPeak = useRef(0);
 
   useEffect(() => {
     alive.current = true;
@@ -346,6 +359,7 @@ export function DialoguePlay() {
    */
   useEffect(() => {
     if (step !== 'QUIZ_LISTENING') return;
+    if (recorder.level > quizPeak.current) quizPeak.current = recorder.level;
     if (recorder.level >= QUIZ_VOICE_LEVEL) quizHeard.current += 1;
   }, [recorder.level, step]);
 
@@ -358,6 +372,7 @@ export function DialoguePlay() {
     let cancelled = false;
     setMyTurn(false);
     quizHeard.current = 0;
+    quizPeak.current = 0;
 
     void holdUntilSpoken()
       .then(async () => {
@@ -386,7 +401,10 @@ export function DialoguePlay() {
          * 대로 크게 말해도 계속 같은 화면을 보게 된다 — 자기가 무엇을 잘못하는지
          * 알 수 없는 채로. 들을 수 없으면 들은 것으로 친다.
          */
-        const spoke = recorder.error !== null || quizHeard.current >= QUIZ_VOICE_FRAMES;
+        // 계기가 내내 0 이었으면 잴 수가 없었던 것이다(위 quizPeak 주석 참고).
+        const measured = quizPeak.current > 0;
+        const spoke =
+          recorder.error !== null || !measured || quizHeard.current >= QUIZ_VOICE_FRAMES;
         if (spoke || quizRetry >= QUIZ_RETRY_MAX) {
           setStep('ANSWER');
           return;

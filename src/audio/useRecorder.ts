@@ -152,6 +152,18 @@ export function useRecorder(onLimitReached?: (audio: RecordingFile) => void): Us
       // 녹음 중이라는 걸 아이가 알 수 있는 유일한 신호라 장식이 아니다.
       const ctx = new AudioContext();
       audioCtxRef.current = ctx;
+      /*
+       * **아이폰 사파리는 AudioContext 를 멈춘 채로 만든다.**
+       *
+       * 깨우지 않으면 분석기가 내내 0 을 내놓는다. 그러면 소리 크기가 정확히 0 에
+       * 붙박여서, 아이가 아무리 크게 말해도 화면은 "안 들렸다" 로 판정한다 —
+       * 빈칸 퀴즈에서 계속 다시 말하라고 되묻던 것이 이 때문이었다.
+       *
+       * 실패는 삼킨다. 깨우지 못해도 녹음 자체는 되므로 여기서 멈출 이유가 없다.
+       * (그때를 대비한 안전망은 화면 쪽에 따로 있다 — 계기가 한 번도 안 움직였으면
+       *  "못 잰 것" 으로 보고 통과시킨다.)
+       */
+      await ctx.resume().catch(() => undefined);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 512;
       ctx.createMediaStreamSource(stream).connect(analyser);
