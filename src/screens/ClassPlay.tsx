@@ -10,6 +10,7 @@ import {
   MicButton,
   PartnerActor,
   ProgressDots,
+  SentenceBox,
   SpeechBubble,
   Thinking,
   TopBar,
@@ -20,7 +21,7 @@ import { Stage } from '@/components/Stage';
 import { announce, speakLines, stopSpeaking } from '@/audio/speaker';
 import { useRecorder } from '@/audio/useRecorder';
 import { CLASS, randomFruitCount, randomPage, randomPoem, randomSubject } from '@/scenarios/data';
-import { countLabel, heardCount } from '@/scenarios/counting';
+import { countLabel, countSentence, heardCount, MAX_COUNT } from '@/scenarios/counting';
 import { FruitCount } from '@/components/FruitCount';
 import { useAppState } from '@/store/appState';
 import './screens.css';
@@ -42,7 +43,7 @@ type Step =
   | 'POEM_FEEDBACK'
   // 수학 — 과일을 센다
   | 'COUNT'
-  | 'COUNT_ANSWER'
+  | 'COUNT_READ'
   | 'COMPLETE';
 
 /** 진행 점 4개 — 다른 시나리오와 같은 눈금을 쓴다 */
@@ -53,7 +54,7 @@ const DOT: Record<Step, number> = {
   POEM: 2,
   POEM_FEEDBACK: 2,
   COUNT: 2,
-  COUNT_ANSWER: 2,
+  COUNT_READ: 2,
   COMPLETE: 3,
 };
 
@@ -109,10 +110,32 @@ export function ClassPlay() {
   const subject = useMemo(() => randomSubject(), []);
   /** 수학 시간에 셀 것. 한 종류를 1~5개 */
   const quiz = useMemo(() => randomFruitCount(), []);
-  /** 아이가 말한 개수. 못 알아들었으면 null */
-  const [heard, setHeard] = useState<number | null>(null);
-  /** 답을 못 맞힌 채 되물은 횟수 */
-  const [missed, setMissed] = useState(0);
+  /**
+   * 골라 봤다가 틀린 보기들.
+   *
+   * 지우지 않고 남긴다 — 아이가 무엇을 이미 눌러 봤는지 보여야 같은 것을 또
+   * 누르지 않는다. 다섯 중에 고르는 일이라 기억에만 맡기면 헛수고를 반복한다.
+   */
+  const [wrongPicks, setWrongPicks] = useState<number[]>([]);
+  /** 맞게 고른 뒤 문장을 읽었나 */
+  const [readDone, setReadDone] = useState(false);
+  /** 읽은 말에서 개수가 들렸나. 안 들려도 넘어가지만 칭찬하는 말이 달라진다 */
+  const [readWell, setReadWell] = useState(false);
+
+  /** 맞힌 문장. 보기이자, 그 뒤에 따라 읽을 말이다 */
+  const answerSentence = countSentence(quiz.fruit.name, quiz.count);
+
+  /** 지금 아이에게 하는 말. 화면의 띠와 소리가 **같은 곳**에서 나온다 */
+  const questionLine =
+    step === 'COUNT_READ'
+      ? readDone
+        ? readWell
+          ? '잘했어요! 또박또박 읽었어요.'
+          : '잘했어요! 끝까지 읽었어요.'
+        : `맞았어요!\n이제 따라 읽어볼까요?`
+      : wrongPicks.length > 0
+        ? '다시 한번 세어 볼까요?'
+        : '그림에 있는 과일의 개수는 몇 개인가요?';
   // 앞뒤 어느 쪽으로도 가야 하도록, 시작 위치를 목표의 앞이나 뒤에 둔다.
   const [page, setPage] = useState(() => target + (Math.random() < 0.5 ? -1 : 1) * START_OFFSET);
   const [flip, setFlip] = useState<Flip>(null);
@@ -157,6 +180,23 @@ export function ClassPlay() {
   useEffect(() => {
     pageRef.current = page;
   }, [page]);
+
+  /*
+   * 수학 문제를 소리로도 들려준다.
+   *
+   * 말풍선이었을 때는 스스로 읽었지만 띠로 바꾸면서 그 기능이 없어졌다.
+   * 글자를 아직 못 읽는 아이가 대부분이라, 소리가 없으면 무엇을 하라는
+   * 화면인지 알 수가 없다.
+   */
+  useEffect(() => {
+    if (step !== 'COUNT' && step !== 'COUNT_READ') return;
+    void announce(questionLine, 'KOREAN', 'TEACHER');
+    /*
+     * 문구가 같아도 다시 말해야 하는 자리가 있다 — 두 번째로 틀리게 골랐을 때다.
+     * 그때 "다시 한번 세어 볼까요?" 는 그대로라 문구만 보면 아무 일도 안 일어나고,
+     * 아이 눈에는 눌러도 반응이 없는 화면이 된다. 그래서 고른 횟수도 같이 본다.
+     */
+  }, [step, questionLine, wrongPicks.length]);
 
   /*
    * 되묻는 말을 소리로도 들려준다.
@@ -269,14 +309,18 @@ export function ClassPlay() {
   }, []);
 
   /*
-   * 수학은 채점이 아니라 **인식**이다.
+   * 맞힌 문장을 소리 내어 읽는 자리.
    *
-   * 국어는 "이 문장을 얼마나 잘 읽었나" 라 /pronunciation 으로 채점하지만,
-   * 수학은 "무엇을 말했나" 를 알아야 한다. 서버의 채점 문장 목록에 "세 개" 같은
-   * 답이 있을 리 없으니 채점으로는 답을 맞힐 수가 없다. /stt 로 글자를 받아
-   * 그 안에서 수를 뽑는다.
+   * **채점이 아니라 인식이다.** 국어는 "이 문장을 얼마나 잘 읽었나" 라
+   * /pronunciation 으로 채점하지만, 여기 문장("사과가 한 개 있어요")은 서버의
+   * 채점 문장 목록에 있을 리가 없어 채점 자체가 불가능하다. /stt 로 글자를 받는다.
+   *
+   * **읽기로 다시 떨어뜨리지 않는다.** 개수는 이미 골라서 맞혔다. 여기서 또
+   * 가르면 맞힌 아이가 두 번째 관문에서 틀린 아이가 된다 — 표현 퀴즈와 같은
+   * 규칙으로, 말했으면 넘어간다. 다만 개수가 또렷하게 들렸으면 그 말을 얹어
+   * 칭찬한다. 아이가 읽은 것을 **들었다는 표시**다.
    */
-  const onCounted = useCallback(
+  const onReadAloud = useCallback(
     async (audio: RecordingFile) => {
       abort.current?.abort();
       const controller = new AbortController();
@@ -285,38 +329,20 @@ export function ClassPlay() {
       try {
         const result = await stt(audio, controller.signal);
         if (!alive.current) return;
-        const said = heardCount(result.text);
-        setHeard(said);
-        if (said === quiz.count) {
-          setMissed(0);
-          setStep('COUNT_ANSWER'); // 맞았으니 칭찬으로 간다
-          return;
-        }
-        /*
-         * 못 알아들었으면 한 번 더 묻는다. 아이가 답을 몰라서가 아니라 소리가
-         * 안 닿은 경우가 많고, 그때 답부터 알려주면 생각할 기회를 뺏는다.
-         * 두 번까지만 되묻고 그 뒤에는 답을 보여준다 — 여기 가둬둘 수는 없다.
-         */
-        if (said === null && missed < 1) {
-          setMissed((n) => n + 1);
-          return; // COUNT 에 그대로 머문다
-        }
-        setMissed((n) => n + 1);
-        setStep('COUNT_ANSWER');
+        setReadWell(heardCount(result.text) === quiz.count);
       } catch (error) {
         if (error instanceof ApiError && error.code === 'CANCELLED') return;
-        if (!alive.current) return;
-        // 서버가 안 되는 것은 아이 잘못이 아니다. 답을 보여주고 따라 말하게 한다.
-        setHeard(null);
-        setStep('COUNT_ANSWER');
+        // 서버가 안 되는 것은 아이 잘못이 아니다. 읽은 것은 읽은 것이다.
+        if (alive.current) setReadWell(false);
       } finally {
+        if (alive.current) setReadDone(true);
         if (alive.current && abort.current === controller) setBusy(false);
       }
     },
-    [quiz.count, missed],
+    [quiz.count],
   );
 
-  const recorder = useRecorder(subject.id === 'MATH' ? onCounted : onRecorded);
+  const recorder = useRecorder(subject.id === 'MATH' ? onReadAloud : onRecorded);
 
   useEffect(() => {
     if (step !== 'COMPLETE') return;
@@ -350,7 +376,7 @@ export function ClassPlay() {
    * 표현 고르기 화면과 같은 규칙이다 — 할 일이 하나뿐인 화면은 바탕을 비운다.
    */
   const plain =
-    step === 'POEM' || step === 'POEM_FEEDBACK' || step === 'COUNT' || step === 'COUNT_ANSWER';
+    step === 'POEM' || step === 'POEM_FEEDBACK' || step === 'COUNT' || step === 'COUNT_READ';
 
   /** 낭독 뒤에 짚어줄 말. 화면에도 뜨고 소리로도 나간다 — 같은 문장을 한 곳에서 만든다. */
   /*
@@ -360,14 +386,6 @@ export function ClassPlay() {
    * 읽었어요!" 가 소리까지 나갔다 — 아이가 어떻게 읽었는지 아무도 모르는데.
    * 따라 말하기에서 고친 것과 같은 종류의 거짓 칭찬이다.
    */
-  /**
-   * 아이가 맞혔나.
-   *
-   * 맞힌 것과 "답을 보여준 것" 은 화면이 달라야 한다 — 둘 다 답이 뜨지만,
-   * 맞힌 아이에게 "따라 말해볼까요?" 라고 하면 자기가 틀린 줄 안다.
-   */
-  const correct = heard === quiz.count;
-
   const graded = score !== null;
   const feedbackLine = !score
     ? '선생님이 잘 못 들었어.\n그래도 끝까지 읽었구나!'
@@ -380,7 +398,7 @@ export function ClassPlay() {
     : step === 'COMPLETE'
       ? CLASS.scenes.complete
       : step === 'FIND_PAGE' || step === 'FIND_PAGE_DONE'
-        ? CLASS.scenes.find
+        ? subject.find
         : subject.scene;
 
   /*
@@ -598,81 +616,138 @@ export function ClassPlay() {
           </>
         )}
 
-        {(step === 'COUNT' || step === 'COUNT_ANSWER') && (
+        {(step === 'COUNT' || step === 'COUNT_READ') && (
           <>
             <div className="stage-center">
-              <div className="talk-group">
-                {/*
-                  key 에 되물은 횟수를 태워 매번 다시 읽어준다. 문구가 같으면
-                  두 번째에는 아무 소리도 안 나서, 아이는 자기 말이 닿았는지를
-                  알 수 없다.
-                */}
-                <SpeechBubble key={`${step}-${missed}`} tone="teacher" speaker="토끼 선생님">
-                  {step === 'COUNT_ANSWER'
-                    ? correct
-                      ? '잘했어요! 정확히 세었어요.'
-                      : `${quiz.fruit.name}가 ${countLabel(quiz.count)} 있어요.
-따라 말해볼까요?`
-                    : missed > 0
-                      ? '잘 못 들었어. 다시 말해줄래?'
-                      : '그림에 있는 과일의 개수는 몇 개인가요?'}
-                </SpeechBubble>
-                <div className="actors actors--grounded">
-                  <Character who="teacher" pose={correct ? 'happy' : 'hello'} height={132} />
-                </div>
-              </div>
+              {/*
+                말풍선과 선생님을 세우지 않는다.
+
+                이 화면은 볼 것이 이미 많다 — 과일이 최대 다섯 개에 고를 보기가
+                다섯 줄인데, 그 위에 말풍선과 토끼까지 서면 아이 눈이 갈 곳을
+                잃는다. 게다가 여기서 물어보는 것은 누가 하는 말인지가 아니라
+                **무엇을 세야 하는가** 하나다. 그래서 폭을 꽉 채운 띠로 둔다.
+              */}
+              <p className="quiz-band" key={`${questionLine}-${wrongPicks.length}`}>
+                {questionLine}
+              </p>
 
               {/*
                 문제 그림. 과일은 그림에 굽지 않고 얹는다 — 종류 셋 × 개수 다섯이면
                 열다섯 장이 되고, 그림 한 장을 고칠 때마다 열다섯 장을 다시 만들어야 한다.
+
+                고르는 동안에는 낮춘다. 보기 다섯 줄이 아래에 서야 하는데 그림이
+                390px 를 그대로 차지하면 작은 폰에서 마지막 보기가 화면 밖으로
+                밀린다 — 아이는 다섯 중 넷만 있는 문제를 풀게 된다.
               */}
-              <div className="math-card" style={{ backgroundImage: `url(${CLASS.mathScene})` }}>
+              <div
+                className={`math-card${step === 'COUNT' ? ' math-card--compact' : ''}`}
+                style={{ backgroundImage: `url(${CLASS.mathScene})` }}
+              >
                 <FruitCount fruit={quiz.fruit} count={quiz.count} />
-                {step === 'COUNT_ANSWER' ? (
-                  <span className="math-card__answer">{countLabel(quiz.count)}</span>
-                ) : null}
               </div>
 
-              {busy ? (
-                <span className="pill-note">
-                  잘 들었어요 <Thinking />
-                </span>
+              {step === 'COUNT' ? (
+                /*
+                  말하기가 아니라 고르기다.
+
+                  세는 말을 **소리로** 요구하면 두 가지를 한꺼번에 시키는 셈이다 —
+                  개수를 세는 일과, 한국어 수사를 발음하는 일. 이 앱을 쓰는 아이는
+                  한국어가 아직 서툴러서, 다섯 개를 정확히 세고도 "다섯"이 입에서
+                  안 나와 틀린 아이가 된다. 수학 문제는 수학으로 묻는다.
+
+                  대신 보기를 **문장으로** 둔다. "5" 가 아니라 "사과가 다섯 개
+                  있어요" 다. 고르는 동안 셀 말을 눈으로 읽게 되고, 고른 그 문장이
+                  바로 다음 화면에서 소리 내어 읽을 문장이 된다.
+                */
+                <div className="count-choices" role="group" aria-label="개수 고르기">
+                  {Array.from({ length: MAX_COUNT }, (_, i) => i + 1).map((n) => {
+                    const wrong = wrongPicks.includes(n);
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        className="count-choice"
+                        data-wrong={wrong || undefined}
+                        /*
+                          틀린 보기를 지우거나 못 누르게 막지 않는다. 흐리게 두고
+                          그대로 남긴다 — 무엇을 이미 눌러 봤는지 보여야 같은 것을
+                          또 누르지 않는다. 다섯 중에 고르는 일을 기억에만 맡기면
+                          헛수고를 되풀이한다.
+                        */
+                        onClick={() => {
+                          stopSpeaking();
+                          if (n === quiz.count) {
+                            setStep('COUNT_READ');
+                            return;
+                          }
+                          setWrongPicks((prev) => (prev.includes(n) ? prev : [...prev, n]));
+                        }}
+                      >
+                        {countSentence(quiz.fruit.name, n)}
+                      </button>
+                    );
+                  })}
+                </div>
               ) : (
-                <span className="pill-note">
-                  {step === 'COUNT_ANSWER' && !correct
-                    ? `"${quiz.fruit.name} ${countLabel(quiz.count)}" 라고 말해보세요`
-                    : '마이크를 누르고 몇 개인지 말해보세요'}
-                </span>
+                /*
+                  맞힌 문장을 큰 상자로 보여준다. 상자를 누르면 선생님이 읽어준다 —
+                  글자를 아직 못 읽는 아이는 들어야 따라 할 수 있다.
+                */
+                <SentenceBox text={answerSentence} />
               )}
+
+              {step === 'COUNT_READ' ? (
+                busy ? (
+                  <span className="pill-note">
+                    잘 들었어요 <Thinking />
+                  </span>
+                ) : (
+                  <span className="pill-note">
+                    {readDone ? '참 잘했어요' : '마이크를 누르고 이 문장을 읽어보세요'}
+                  </span>
+                )
+              ) : null}
             </div>
 
             <div className="scene-footer">
-              {step === 'COUNT' ? (
-                <div style={{ display: 'grid', placeItems: 'center' }}>
-                  <MicButton
-                    recording={recorder.isRecording}
-                    level={recorder.level}
-                    progress={recorder.progress}
-                    disabled={busy}
-                    hint={recorder.isRecording ? '다 말했으면 다시 눌러요' : '눌러서 말하기'}
-                    onClick={async () => {
-                      if (recorder.isRecording) {
-                        const audio = await recorder.stop();
-                        if (audio) await onCounted(audio);
-                      } else {
-                        stopSpeaking();
-                        await recorder.start();
-                      }
-                    }}
-                  />
-                </div>
-              ) : (
-                <BigButton icon="home" onClick={() => setStep('COMPLETE')}>
-                  다 했어요
-                </BigButton>
-              )}
-              {micBlocked && step === 'COUNT' ? (
-                <BigButton tone="ghost" onClick={() => setStep('COUNT_ANSWER')}>
+              {/*
+                고르는 동안에는 아래에 아무것도 두지 않는다. 버튼이 하나라도 서면
+                아이는 문제를 풀지 않고 그것부터 누른다. 나가는 길은 정답 하나다.
+              */}
+              {step === 'COUNT_READ' ? (
+                readDone ? (
+                  <BigButton icon="home" onClick={() => setStep('COMPLETE')}>
+                    다 했어요
+                  </BigButton>
+                ) : (
+                  <div style={{ display: 'grid', placeItems: 'center' }}>
+                    <MicButton
+                      recording={recorder.isRecording}
+                      level={recorder.level}
+                      progress={recorder.progress}
+                      disabled={busy}
+                      hint={recorder.isRecording ? '다 읽었으면 다시 눌러요' : '눌러서 읽기'}
+                      onClick={async () => {
+                        if (recorder.isRecording) {
+                          const audio = await recorder.stop();
+                          if (!audio) return;
+                          await onReadAloud(audio);
+                        } else {
+                          stopSpeaking();
+                          await recorder.start();
+                        }
+                      }}
+                    />
+                  </div>
+                )
+              ) : null}
+              {/*
+                마이크가 아예 안 되는 기기에는 길을 하나 남긴다. 그때는 아이가
+                아무리 해도 나갈 수 없는데, 그건 아이 잘못이 아니다.
+                개수는 이미 골라서 맞힌 뒤라 건너뛰어도 문제를 푼 것이다.
+              */}
+              {micBlocked && step === 'COUNT_READ' && !readDone ? (
+                <BigButton tone="ghost" onClick={() => setReadDone(true)}>
                   마이크 없이 넘어가기
                 </BigButton>
               ) : null}

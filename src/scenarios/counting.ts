@@ -81,3 +81,24 @@ const COUNTER = ['', '한', '두', '세', '네', '다섯'];
 export function countLabel(n: number): string {
   return `${COUNTER[n] ?? n} 개`;
 }
+
+/**
+ * 낱말 뒤에 붙는 주격 조사. 받침이 있으면 "이", 없으면 "가".
+ *
+ * 사과**가** · 수박**이** · 바나나**가**. 한 가지로 못박으면 셋 중 하나는 반드시
+ * 틀린 말이 되는데, 이 앱은 한국어를 **가르치는** 앱이라 화면에 틀린 조사를
+ * 띄울 수 없다.
+ *
+ * 한글 음절은 0xAC00 부터 28개마다 받침이 한 바퀴 돈다. 나머지가 0이면 받침이 없다.
+ */
+export function subjectParticle(word: string): string {
+  const last = word.trim().slice(-1);
+  const code = last.charCodeAt(0);
+  if (code < 0xac00 || code > 0xd7a3) return '가'; // 한글이 아니면 그냥 둔다
+  return (code - 0xac00) % 28 === 0 ? '가' : '이';
+}
+
+/** "사과가 한 개 있어요" — 고르는 보기이자, 맞힌 뒤 따라 읽을 문장이다 */
+export function countSentence(fruitName: string, n: number): string {
+  return `${fruitName}${subjectParticle(fruitName)} ${countLabel(n)} 있어요`;
+}

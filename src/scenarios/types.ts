@@ -111,6 +111,13 @@ export type ClassSubject = {
   lead: string;
   /** 책 찾기 전까지 깔리는 배경 */
   scene: string;
+  /**
+   * 책을 찾는 동안 깔리는 배경.
+   *
+   * 과목마다 다르다. 국어 배경에는 그림 속에 **국어책이 그려져 있어서**,
+   * 수학 시간에 그대로 쓰면 아이가 수학책을 밀면서 국어책을 보게 된다.
+   */
+  find: string;
   /** 손으로 밀어 넘기는 책 */
   book: string;
   /** 선생님이 쪽을 부르는 말. {page} 자리에 쪽 번호가 들어간다 */
@@ -123,7 +130,7 @@ export type ClassScenario = {
   id: 'CLASS';
   title: string;
   tagline: string;
-  scenes: { find: string; complete: string };
+  scenes: { complete: string };
   /** 화면 위에 올리는 소품 그림 */
   props: { bookFound: string; swipeHint: string };
   /** 회차마다 둘 중 하나를 뽑는다 */
