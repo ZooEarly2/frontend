@@ -24,7 +24,7 @@ import {
 import { GemKept, GemReward } from '@/components/GemReward';
 import { Icon } from '@/components/Icon';
 import { Stage } from '@/components/Stage';
-import { announce, speakLines, stopSpeaking } from '@/audio/speaker';
+import { announce, speakLines, stopSpeaking, whenNarrationDone } from '@/audio/speaker';
 import { useRecorder } from '@/audio/useRecorder';
 import { CLASS, randomFruitCount, randomPage, randomPoem, randomSubject } from '@/scenarios/data';
 import { countLabel, countSentence, heardCount, MAX_COUNT } from '@/scenarios/counting';
@@ -50,6 +50,7 @@ type Step =
   // 수학 — 과일을 센다
   | 'COUNT'
   | 'COUNT_READ'
+  | 'COUNT_PRAISE'
   | 'COUNT_FEEDBACK'
   | 'COMPLETE';
 
@@ -62,6 +63,7 @@ const DOT: Record<Step, number> = {
   POEM_FEEDBACK: 2,
   COUNT: 2,
   COUNT_READ: 2,
+  COUNT_PRAISE: 2,
   COUNT_FEEDBACK: 2,
   COMPLETE: 3,
 };
@@ -130,12 +132,6 @@ export function ClassPlay() {
   const [wrongPicks, setWrongPicks] = useState<number[]>([]);
   /** 읽은 문장의 발음 채점 결과. null 이면 채점이 아예 안 됐다 */
   const [readScore, setReadScore] = useState<PronunciationResult | null>(null);
-  /**
-   * 채점 없이 넘어온 경우, 읽은 말에서 개수가 들렸나.
-   *
-   * 서버가 아직 수학 문장을 모를 때만 쓰는 옛 길이다(아래 scorable 참고).
-   */
-  const [readWell, setReadWell] = useState(false);
   /** 문장과 다른 말을 읽어 되물은 횟수 */
   const [misread, setMisread] = useState(0);
   /**
@@ -175,16 +171,19 @@ export function ClassPlay() {
    * 아무도 모르는데. 동시 낭독에서 고친 것과 같은 종류의 거짓 칭찬이라 여기도
    * 갈라 둔다.
    */
-  const readLine = readScore
-    ? readScore.targetWord
-      ? `"${readScore.targetWord}" 부분을\n조금 더 천천히 읽어볼까요?`
-      : '아주 또박또박 잘 읽었어요!'
-    : scorable === false
-      ? // 채점을 못 하는 서버라 발음은 못 본다. 들린 것까지만 정직하게 말한다.
-        readWell
-        ? '잘했어요! 끝까지 읽었어요.'
-        : '잘했어요! 읽어보았구나.'
-      : '선생님이 잘 못 들었어.\n그래도 끝까지 읽었구나!';
+  /** 짚어주는 화면에서 하는 말. 잘 읽은 경우는 여기 오지 않는다 — 칭찬 화면이 맡는다 */
+  const readLine = readScore?.targetWord
+    ? `"${readScore.targetWord}" 부분을\n조금 더 천천히 읽어볼까요?`
+    : '선생님이 잘 못 들었어.\n그래도 끝까지 읽었구나!';
+
+  /*
+   * 칭찬 화면의 아래 한 줄.
+   *
+   * 채점을 받았을 때만 "자연스럽게 말했다" 고 할 수 있다. 서버가 이 문장을 아직
+   * 몰라 STT 로만 들은 경우에는 **발음을 본 적이 없으므로** 그 말을 하면 안 된다 —
+   * 무엇을 말했는지만 알 뿐이다.
+   */
+  const praiseLine = readScore ? '정말 자연스럽게 말했어요!' : '끝까지 또렷하게 말했어요!';
 
   const questionLine =
     wrongPicks.length > 0 ? '다시 한번 세어 볼까요?' : '그림에 있는 과일의 개수는 몇 개인가요?';
@@ -287,6 +286,29 @@ export function ClassPlay() {
     if (offScript === 0) return;
     void announce(RETRY_LINE, 'KOREAN', 'TEACHER');
   }, [offScript]);
+
+  /*
+   * 칭찬 화면은 버튼이 없다. 말풍선을 다 읽어주면 스스로 넘어간다 —
+   * 등교하기의 칭찬 화면과 같은 처리다. 아이가 해낸 직후에 "다음" 을 누르게
+   * 하면 칭찬이 끊기고, 글자를 못 읽는 아이는 무엇을 누르라는 건지도 모른다.
+   *
+   * 낭독이 안 끝나도 8초면 넘어간다. 소리가 꺼진 기기에서는 끝나는 신호가
+   * 영영 안 와서, 그것만 기다리면 화면이 멈춘다.
+   */
+  useEffect(() => {
+    if (step !== 'COUNT_PRAISE') return;
+    let cancelled = false;
+    const after = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
+    void Promise.race([
+      Promise.all([whenNarrationDone(), after(1200)]).then(() => undefined),
+      after(8000),
+    ]).then(() => {
+      if (!cancelled && alive.current) setStep('COMPLETE');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [step]);
 
   const poemText = poem.lines.join(' ');
 
@@ -415,13 +437,16 @@ export function ClassPlay() {
           const result = await pronunciation(audio, answerSentenceId, controller.signal);
           if (!alive.current) return;
           setReadScore(result);
+          // 잘함/못함 판정은 서버가 한다. 앱은 targetWord 가 null 인지만 본다 —
+          // 등교하기의 따라 말하기와 같은 갈림길이다.
+          setStep(result.targetWord === null ? 'COUNT_PRAISE' : 'COUNT_FEEDBACK');
         } else {
           // 서버가 아직 이 문장을 모른다. 무엇을 말했는지까지만 본다.
           const result = await stt(audio, controller.signal);
           if (!alive.current) return;
-          setReadWell(heardCount(result.text) === quiz.count);
+          const heard = heardCount(result.text) === quiz.count;
+          setStep(heard ? 'COUNT_PRAISE' : 'COUNT_FEEDBACK');
         }
-        if (alive.current) setStep('COUNT_FEEDBACK');
       } catch (error) {
         if (error instanceof ApiError && error.code === 'CANCELLED') return;
         if (!alive.current) return;
@@ -587,7 +612,11 @@ export function ClassPlay() {
         "이제 따라 말해볼까요?" 와 두 가지를 한꺼번에 말하게 된다. 색종이는
         읽지 않아도 알아보고, 화면의 말은 지금 할 일 하나만 남는다.
       */}
-      {step === 'FIND_PAGE_DONE' || (step === 'COUNT_READ' && justPicked) ? <Confetti /> : null}
+      {step === 'FIND_PAGE_DONE' ||
+      step === 'COUNT_PRAISE' ||
+      (step === 'COUNT_READ' && justPicked) ? (
+        <Confetti />
+      ) : null}
 
       <div className="scene-body">
         {step === 'INTRO' && (
@@ -910,6 +939,20 @@ export function ClassPlay() {
           </>
         )}
 
+        {/*
+          잘 읽었을 때. 등교하기의 칭찬 화면과 같은 모양이다 —
+          짚어줄 것이 없는데 기린을 세워 카드를 내밀면, 아이는 무언가 틀린 줄 안다.
+        */}
+        {step === 'COUNT_PRAISE' && (
+          <div className="stage-center">
+            <SpeechBubble tone="teacher">{'훌륭해!\n너무 멋져'}</SpeechBubble>
+            <Character who="me" pose="cheer" height={200} />
+            <div className="card">
+              <p className="subtitle">{praiseLine}</p>
+            </div>
+          </div>
+        )}
+
         {step === 'COUNT_FEEDBACK' && (
           <>
             <div className="stage-center">
@@ -948,7 +991,6 @@ export function ClassPlay() {
                   icon="replay"
                   onClick={() => {
                     setReadScore(null);
-                    setReadWell(false);
                     // 되묻기 횟수도 지운다. 안 지우면 아이가 아무 말도 안 한 상태에서
                     // "잘 못 들었어" 가 뜨고, 탈출 버튼도 3회가 아니라 그보다 일찍 열린다.
                     setMisread(0);
