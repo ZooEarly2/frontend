@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '@/api/client';
 import { getSentences, pronunciation, stt, type RecordingFile } from '@/api/endpoints';
-import type { PronunciationResult } from '@/api/types';
+import { TRANSLATION_KEY, type PronunciationResult, type PronunciationSentence } from '@/api/types';
 import {
   BigButton,
+  BlankSentence,
   Character,
   Confetti,
   MicButton,
@@ -18,7 +19,7 @@ import {
 import { GemKept, GemReward } from '@/components/GemReward';
 import { Icon } from '@/components/Icon';
 import { Stage } from '@/components/Stage';
-import { announce, speakLines, stopSpeaking, whenNarrationDone } from '@/audio/speaker';
+import { announce, speak, speakLines, stopSpeaking, whenNarrationDone } from '@/audio/speaker';
 import { useRecorder } from '@/audio/useRecorder';
 import { CLASS, randomFruitCount, randomPage, randomPoem, randomSubject } from '@/scenarios/data';
 import { countLabel, countSentence, heardCount, MAX_COUNT } from '@/scenarios/counting';
@@ -45,6 +46,9 @@ type Step =
   | 'COUNT'
   | 'COUNT_READ'
   | 'COUNT_PRAISE'
+  | 'COUNT_QUIZ'
+  | 'COUNT_QUIZ_LISTENING'
+  | 'COUNT_ANSWER'
   | 'COUNT_FEEDBACK'
   | 'COMPLETE';
 
@@ -58,6 +62,9 @@ const DOT: Record<Step, number> = {
   COUNT: 2,
   COUNT_READ: 2,
   COUNT_PRAISE: 2,
+  COUNT_QUIZ: 2,
+  COUNT_QUIZ_LISTENING: 2,
+  COUNT_ANSWER: 2,
   COUNT_FEEDBACK: 2,
   COMPLETE: 3,
 };
@@ -74,6 +81,19 @@ const RETRY_LINE = '잘 못 들었어. 다시 읽어줄래?';
 
 /** 수학에서 문장과 다른 말을 했을 때. 여기는 "말하기" 자리라 낱말이 다르다. */
 const READ_RETRY_LINE = '잘 못 들었어. 다시 말해줄래?';
+
+/*
+ * 빈칸 퀴즈의 값들. 표현 퀴즈(DialoguePlay)와 **같아야 한다** — 같은 모양의
+ * 화면인데 기다리는 시간이나 되묻는 횟수가 다르면 아이는 다른 규칙을 배운다.
+ */
+/** 이만큼은 소리가 커야 "말했다" 로 본다. 조용한 방은 0.04 아래로 나온다 */
+const QUIZ_VOICE_LEVEL = 0.13;
+/** 그 크기가 몇 번 연달아 잡혀야 하는가. 기침 한 번에 통과하지 않게 */
+const QUIZ_VOICE_FRAMES = 3;
+/** 안 들렸을 때 되묻는 횟수 */
+const QUIZ_RETRY_MAX = 2;
+/** 아이 차례로 열어 두는 시간 */
+const SPEAKING_WINDOW_MS = 4500;
 
 /**
  * 한 장이 넘어가는 데 걸리는 시간.
@@ -101,7 +121,7 @@ type Flip = 'next' | 'prev' | null;
 
 export function ClassPlay() {
   const navigate = useNavigate();
-  const { completeCategory, isCompleted } = useAppState();
+  const { completeCategory, isCompleted, profile } = useAppState();
 
   const [step, setStep] = useState<Step>('INTRO');
   // 회차마다 다른 쪽 번호를 한 번만 뽑아 끝까지 같은 값을 쓴다.
@@ -137,6 +157,21 @@ export function ClassPlay() {
    * 축하하면 색종이가 무슨 뜻인지 흐려진다.
    */
   const [justPicked, setJustPicked] = useState(false);
+  /** 빈칸 퀴즈에서 안 들려 되물은 횟수 */
+  const [quizRetry, setQuizRetry] = useState(0);
+  /** 지금이 아이 차례인가 — 줄어드는 막대를 켠다 */
+  const [myTurn, setMyTurn] = useState(false);
+  /** 뜻(전구)을 펼쳤나 */
+  const [hintOpen, setHintOpen] = useState(false);
+  /** 목록에서 받아 둔 이 문장 항목. 뜻을 띄울 때 쓴다 */
+  const [sentenceItem, setSentenceItem] = useState<PronunciationSentence | null>(null);
+  /**
+   * 아이 목소리가 이만큼 컸던 프레임 수.
+   *
+   * **화면에 그리지 않으므로 state 가 아니라 ref 다.** state 로 두면 프레임마다
+   * 화면을 다시 그리게 되고, 그 사이 값이 뒤처져 판정이 어긋난다.
+   */
+  const quizHeard = useRef(0);
 
   /**
    * 지금 단계. 응답이 늦게 온 뒤에도 화면을 되돌리지 않으려고 들고 있다.
@@ -177,6 +212,17 @@ export function ClassPlay() {
    * 아무도 모르는데. 동시 낭독에서 고친 것과 같은 종류의 거짓 칭찬이라 여기도
    * 갈라 둔다.
    */
+  /*
+   * 퀴즈 문장을 아이의 모국어로. 목록에 실려 온 값을 그대로 쓴다 —
+   * 누를 때마다 번역을 부르면 전구를 누르고 몇 초를 기다려야 한다.
+   *
+   * 수학 문장에는 조각 대응표가 없다(빈칸 퀴즈를 염두에 두고 만든 표가 아니다).
+   * 그때는 뜻만 통째로 보여준다 — 짚어줄 자리를 모르는 채 아무 데나 밑줄을
+   * 그으면 틀린 것을 가르치게 된다.
+   */
+  const hintKey = profile ? TRANSLATION_KEY[profile.nativeLanguage] : null;
+  const hintText = hintKey ? (sentenceItem?.translations?.[hintKey] ?? null) : null;
+
   /** 짚어주는 화면에서 하는 말. 잘 읽은 경우는 여기 오지 않는다 — 칭찬 화면이 맡는다 */
   const readLine = readScore?.targetWord
     ? `"${readScore.targetWord}" 부분을\n조금 더 천천히 읽어볼까요?`
@@ -253,7 +299,9 @@ export function ClassPlay() {
       (list) => {
         // 응답을 받는 것 자체가 예열이다. 국어는 결과를 쓸 일이 없다.
         if (alive.current && subject.id === 'MATH') {
-          setScorable(list.some((item) => item.sentenceId === answerSentenceId));
+          const found = list.find((item) => item.sentenceId === answerSentenceId) ?? null;
+          setSentenceItem(found);
+          setScorable(found !== null);
         }
       },
       () => {
@@ -464,7 +512,7 @@ export function ClassPlay() {
           setReadScore(result);
           // 잘함/못함 판정은 서버가 한다. 앱은 targetWord 가 null 인지만 본다 —
           // 등교하기의 따라 말하기와 같은 갈림길이다.
-          setStep(result.targetWord === null ? 'COUNT_PRAISE' : 'COUNT_FEEDBACK');
+          setStep(result.targetWord === null ? 'COUNT_PRAISE' : 'COUNT_QUIZ');
         } else {
           // 서버가 아직 이 문장을 모른다. 무엇을 말했는지까지만 본다.
           const result = await stt(audio, controller.signal);
@@ -531,6 +579,74 @@ export function ClassPlay() {
     stopSpeaking();
     setStep('COMPLETE');
   }, [recorder]);
+
+  /*
+   * 아이가 실제로 소리를 냈는지 센다.
+   *
+   * 예전 표현 퀴즈는 녹음도 채점도 하지 않고 4.5초만 기다렸다가 무조건 정답
+   * 화면으로 넘어갔다 — 아이가 배우는 것이 "가만히 있으면 통과한다" 가 됐다.
+   * 여기도 같은 화면이므로 같은 장치를 둔다.
+   */
+  useEffect(() => {
+    if (step !== 'COUNT_QUIZ_LISTENING') return;
+    if (recorder.level >= QUIZ_VOICE_LEVEL) quizHeard.current += 1;
+  }, [recorder.level, step]);
+
+  /*
+   * 칭찬·듣는 중 화면은 버튼이 없다 — 읽어주기가 끝나면 스스로 넘어간다.
+   *
+   * 낭독이 안 끝나도 8초면 넘어간다. 소리가 꺼진 기기에서는 끝나는 신호가 영영
+   * 안 와서, 그것만 기다리면 화면이 멈춘다.
+   */
+  useEffect(() => {
+    if (step !== 'COUNT_PRAISE' && step !== 'COUNT_QUIZ_LISTENING') return;
+    const listening = step === 'COUNT_QUIZ_LISTENING';
+    let cancelled = false;
+    const after = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
+    setMyTurn(false);
+    quizHeard.current = 0;
+
+    void Promise.race([
+      Promise.all([whenNarrationDone(), after(1200)]).then(() => undefined),
+      after(8000),
+    ])
+      .then(async () => {
+        if (cancelled || !alive.current) return;
+        if (!listening) return;
+        // 물음을 다 읽어준 지금부터가 아이 시간이다.
+        setMyTurn(true);
+        // 낭독이 끝난 뒤에 연다. 열어둔 채 읽어주면 스피커 소리가 그대로 녹음된다.
+        await recorder.start();
+        await after(SPEAKING_WINDOW_MS);
+        await recorder.stop(); // 파일은 쓰지 않는다. 크기만 보려고 연 것이다
+      })
+      .then(() => {
+        if (cancelled || !alive.current) return;
+        if (!listening) {
+          setStep('COMPLETE');
+          return;
+        }
+        /*
+         * 마이크가 막힌 아이는 판정할 방법이 없다. 그때 되물으면 시키는 대로
+         * 크게 말해도 계속 같은 화면을 보게 된다 — 자기가 무엇을 잘못하는지
+         * 알 수 없는 채로. 들을 수 없으면 들은 것으로 친다.
+         */
+        const spoke = recorder.error !== null || quizHeard.current >= QUIZ_VOICE_FRAMES;
+        if (spoke || quizRetry >= QUIZ_RETRY_MAX) {
+          setStep('COUNT_ANSWER');
+          return;
+        }
+        setQuizRetry((n) => n + 1);
+        setStep('COUNT_QUIZ');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // recorder 는 매 렌더 새 객체라 의존성에 넣으면 이펙트가 계속 다시 돈다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, quizRetry]);
+
 
   useEffect(() => {
     if (step !== 'COMPLETE') return;
@@ -669,6 +785,7 @@ export function ClassPlay() {
       */}
       {step === 'FIND_PAGE_DONE' ||
       step === 'COUNT_PRAISE' ||
+      step === 'COUNT_ANSWER' ||
       (step === 'COUNT_READ' && justPicked) ? (
         /*
           key 가 없으면 COUNT_READ → COUNT_PRAISE 처럼 조건이 참인 채로 이어지는
@@ -1013,6 +1130,106 @@ export function ClassPlay() {
             </div>
           </div>
         )}
+
+        {/*
+          빈칸 퀴즈 — 표현 퀴즈(등교하기)와 같은 짜임이다.
+
+          채점이 약하다고 짚은 어절 하나를 비우고 문장을 다시 말하게 한다.
+          그냥 "여기를 천천히 읽어보렴" 하고 넘기면 아이는 읽지 않고 넘어간다.
+          비워 두면 그 자리를 채우려고 반드시 소리를 내야 한다.
+        */}
+        {(step === 'COUNT_QUIZ' || step === 'COUNT_QUIZ_LISTENING' || step === 'COUNT_ANSWER') &&
+          readScore && (
+            <>
+              <div className="stage-center">
+                <p className="subtitle on-scene">오늘의 숫자 퀴즈</p>
+                <div className="talk-group">
+                  <SpeechBubble key={`${step}-${quizRetry}`} tone="teacher">
+                    {step === 'COUNT_QUIZ_LISTENING'
+                      ? '듣고 있어!'
+                      : step === 'COUNT_ANSWER'
+                        ? '잘했어!'
+                        : quizRetry > 0
+                          ? '소리가 안 들렸어. 다시 말해볼래?'
+                          : '문장을 다시 말해볼래?'}
+                  </SpeechBubble>
+                  <div className="actors actors--grounded">
+                    <PartnerActor
+                      src="/scenes/pronunciation/img_pronunciation_giraffe.png"
+                      height={148}
+                    />
+                  </div>
+                </div>
+                <div className="card" style={{ width: '100%' }}>
+                  <BlankSentence
+                    sentence={readScore.sentence}
+                    targetIndex={readScore.targetIndex ?? 0}
+                    answer={step === 'COUNT_ANSWER' ? (readScore.targetWord ?? undefined) : undefined}
+                  />
+                  {hintText ? (
+                    <div className="hint">
+                      {/*
+                        뜻을 늘 띄워두지 않는다. 모국어가 옆에 있으면 아이는 한국어를
+                        읽지 않고 그것부터 본다 — 물어봤을 때만 켜져야 한다.
+                      */}
+                      <button
+                        type="button"
+                        className="hint__btn"
+                        data-on={hintOpen}
+                        aria-expanded={hintOpen}
+                        onClick={() => setHintOpen((open) => !open)}
+                      >
+                        <Icon name="bulb" size={20} />
+                        {/*
+                          소리는 내지 않는다. 이 화면에서 아이가 들어야 하는 소리는
+                          한국어 문장뿐이라, 모국어까지 읽어주면 지금 무엇을 말해야
+                          하는지가 흐려진다.
+                        */}
+                        <span>{hintOpen ? '뜻 접기' : '무슨 뜻이야?'}</span>
+                      </button>
+                      {hintOpen ? <p className="hint__text">{hintText}</p> : null}
+                    </div>
+                  ) : null}
+                </div>
+                {quizRetry > 0 && step === 'COUNT_QUIZ' ? (
+                  // 말풍선이 이미 되묻고 있으므로 여기서는 무엇을 하면 되는지만 짚는다
+                  <p className="retry-note">마이크에 대고 크게 말해요</p>
+                ) : null}
+                {step === 'COUNT_QUIZ_LISTENING' ? (
+                  /*
+                    5초 가까이 점 세 개만 깜빡이면 아이는 화면이 멈춘 줄 안다.
+                    줄어드는 막대로 "지금이 네 차례고, 이만큼 남았다" 를 보여준다 —
+                    글자를 못 읽어도 줄어드는 것은 읽는다.
+                  */
+                  <div className="speak-window" data-running={myTurn} aria-hidden>
+                    <span style={{ animationDuration: `${SPEAKING_WINDOW_MS}ms` }} />
+                  </div>
+                ) : null}
+              </div>
+              <div className="scene-footer">
+                <div className="row">
+                  <BigButton
+                    tone="ghost"
+                    icon="sound"
+                    onClick={() => void speak(readScore.sentence, 'KOREAN', 'TEACHER')}
+                  >
+                    다시 들어보기
+                  </BigButton>
+                  {step === 'COUNT_ANSWER' ? (
+                    <BigButton onClick={() => setStep('COMPLETE')}>다음</BigButton>
+                  ) : (
+                    <BigButton
+                      disabled={step === 'COUNT_QUIZ_LISTENING'}
+                      icon="mic"
+                      onClick={() => setStep('COUNT_QUIZ_LISTENING')}
+                    >
+                      말해보기
+                    </BigButton>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
 
         {step === 'COUNT_FEEDBACK' && (
           <>
