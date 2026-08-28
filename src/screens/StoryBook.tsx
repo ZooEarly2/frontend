@@ -12,8 +12,8 @@ import { announce, speak, stopSpeaking } from '@/audio/speaker';
  * 읽혀야 한다. 두 곳에 따로 그리면 한쪽만 고쳐지고 아이는 두 개의 다른 동화책을
  * 보게 된다 — 그래서 그리는 일은 여기 한 곳에만 둔다.
  *
- * 삽화는 여기서 고른다. 장면의 `category` 하나로 결정되는 **번들 정적 그림**이라,
- * 앨범에는 그림을 저장하지 않고 category 만 남긴다.
+ * 삽화는 여기서 고른다. **번들 정적 그림**이라 앨범에는 그림을 저장하지 않고
+ * 장면 정보만 남긴다.
  */
 
 const ILLUSTRATION: Record<StorySceneCategory, string> = {
@@ -22,6 +22,24 @@ const ILLUSTRATION: Record<StorySceneCategory, string> = {
   lunch: '/scenes/story/fairytale_3.png',
   school_departure: '/scenes/story/fairytale_4.png',
 };
+
+/**
+ * 수업시간은 과목까지 봐야 한다.
+ *
+ * **그림 안에 글자가 그려져 있다.** 국어 삽화의 칠판에는 "국어시간 / 동시
+ * 읽어보기" 가, 수학 삽화에는 "수학시간 / 과일 개수 세기" 가 적혀 있다. 그래서
+ * category 하나로 고르면 과일을 센 아이가 동시를 읽은 그림을 받는다 —
+ * 동화가 글로는 바로잡혀도 그림이 계속 거짓말을 하고 있었다.
+ *
+ * 과목을 모르는 장면(수학이 생기기 전에 만든 동화)은 국어로 본다. 그때는 수업시간이
+ * 동시 읽기 하나뿐이었으므로 그게 사실이다.
+ */
+const CLASS_MATH = '/scenes/story/fairytale_2_math.png';
+
+function illustrationFor(scene: StoryScene): string {
+  if (scene.category === 'class' && scene.classSubject === 'MATH') return CLASS_MATH;
+  return ILLUSTRATION[scene.category];
+}
 
 const COVER = '/scenes/story/fairytale_pre.png';
 const ENDING = '/scenes/story/fairytale_epi.png';
@@ -83,7 +101,7 @@ export function StoryBook({
   const isCover = page === 0;
   const isEnding = page === totalPages - 1;
   const scene = isCover || isEnding ? null : scenes[page - 1];
-  const illustration = isCover ? COVER : isEnding ? ENDING : ILLUSTRATION[scene!.category];
+  const illustration = isCover ? COVER : isEnding ? ENDING : illustrationFor(scene!);
   const narration = narrationFor(story, page, nickname);
 
   /*

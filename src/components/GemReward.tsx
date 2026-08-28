@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { Gem } from './Gem';
+import { GEM_EARNED, haptic } from '@/audio/haptics';
 import { CATEGORY_GEM } from '@/scenarios/data';
 import { CATEGORY_ORDER, type CategoryId } from '@/scenarios/types';
 
@@ -21,6 +23,21 @@ import { CATEGORY_ORDER, type CategoryId } from '@/scenarios/types';
  * 바로 아래에서 시작하므로 무엇이 바뀌든 따라간다.
  */
 export function GemReward({ category }: { category: CategoryId }) {
+  /*
+   * 보석이 자리를 잡는 순간 손끝으로도 알린다.
+   *
+   * 마운트 즉시가 아니라 187ms 뒤다 — gem-rise 키프레임의 11% 지점, 보석이
+   * 1.12배로 튀어 올라 "도착했다" 로 읽히는 프레임이다. 먼저 울리면 아무것도
+   * 없는 화면이 떨리고, 늦으면 보석은 이미 가만히 떠 있어서 무엇 때문에
+   * 떨렸는지 이어지지 않는다.
+   *
+   * 진동이 안 되는 기기(아이폰)에서는 아무 일도 일어나지 않는다.
+   */
+  useEffect(() => {
+    const at = window.setTimeout(() => haptic(GEM_EARNED), 187);
+    return () => window.clearTimeout(at);
+  }, []);
+
   return (
     <div className="gem-reward" aria-hidden>
       <span className="gem-reward__halo" />

@@ -128,6 +128,15 @@ export type StorySceneRecord = {
 
 export type StoryScene = {
   category: StorySceneCategory;
+  /**
+   * 수업시간의 과목. 서버가 요청에 담겨 온 값을 그대로 돌려준다.
+   *
+   * **삽화를 이 값으로 고른다.** 그림에 "국어시간 · 동시 읽어보기" 가 글자로
+   * 그려져 있어서, 없으면 과일을 센 아이에게 국어 그림이 나간다. 옛 동화(앨범에
+   * 이미 저장된 것)에는 이 값이 없는데, 그때는 수학 시간 자체가 없었으므로
+   * 국어로 보는 것이 맞다.
+   */
+  classSubject?: 'KOREAN' | 'MATH' | null;
   subtitle: string;
   opening: string;
   quote: string | null;

@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { NativeLanguage, StorySceneRecord } from '@/api/types';
+import { setHaptics } from '@/audio/haptics';
 import { setNarration } from '@/audio/speaker';
 import { forgetLastPoem } from '@/scenarios/data';
 import { resetChildId } from '@/store/childId';
@@ -167,6 +168,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     // 첫 렌더 **전에** 맞춰둔다. 이 효과를 useEffect 로 미루면 자식(말풍선)의 효과가
     // 먼저 돌아, 소리를 꺼둔 사람이 첫 한마디를 듣게 된다.
     setNarration(initial.soundOn);
+    setHaptics(initial.soundOn);
     return initial;
   });
 
@@ -220,8 +222,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // 그 뒤의 변경을 따라간다. 소리 모듈은 리액트 밖에 있다 — 재생은 렌더와 무관하다.
+  //
+  // 진동도 같은 스위치를 따른다. 교실에서 소리를 끄는 사람이 바라는 것은
+  // "조용해지는 것" 인데, 책상 위에서 붕붕대는 기기는 그 바람을 정면으로 어긴다.
   useEffect(() => {
     setNarration(state.soundOn);
+    setHaptics(state.soundOn);
   }, [state.soundOn]);
 
   const resetDay = useCallback(() => {
