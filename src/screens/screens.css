@@ -325,14 +325,26 @@
   width: 380px;
   height: 380px;
   border-radius: 50%;
+  /*
+   * 스포크를 14개에서 **8개**로 줄였다. 밝고 어두운 줄무늬가 한 방향으로 매끄럽게
+   * 도는 패턴은 명암 쌍 8개가 상한이다(Harding 2005) — 14개는 광과민성 기준을
+   * 넘는다. 줄이니 빛살 하나하나도 굵어져 오히려 더 잘 보인다.
+   *
+   * 안쪽 원판에도 closest-side 를 붙여 px 값이 뜻대로 먹게 했다.
+   */
   background:
-    radial-gradient(circle, rgba(255, 250, 236, 1) 0 70px, rgba(255, 250, 236, 0) 128px),
+    radial-gradient(
+        circle closest-side at 50% 46%,
+        rgba(255, 250, 236, 1) 0 70px,
+        rgba(255, 250, 236, 0) 128px
+      )
+      no-repeat,
     repeating-conic-gradient(
-      from 0deg,
-      rgba(255, 211, 110, 0.32) 0deg,
-      rgba(255, 211, 110, 0.32) 4deg,
-      rgba(255, 211, 110, 0) 5.5deg,
-      rgba(255, 211, 110, 0) 25.714deg
+      from 0deg at 50% 46%,
+      rgba(255, 211, 110, 0.34) 0deg,
+      rgba(255, 211, 110, 0.34) 7deg,
+      rgba(255, 211, 110, 0) 10deg,
+      rgba(255, 211, 110, 0) 45deg
     );
   opacity: 0;
   animation:
@@ -360,7 +372,34 @@
   height: 300px;
   --to: 0.82;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 236, 179, 0.9) 0%, rgba(255, 236, 179, 0) 70%);
+  /*
+   * `closest-side` 가 핵심이다. 안 쓰면 크기 기본값이 **farthest-corner** 라
+   * 100% 가 반지름이 아니라 **반대각선**을 뜻한다 — 300px 상자에서 70% 는 의도한
+   * 105px 이 아니라 148.5px 이고, border-radius 50% 가 150px 에서 자르니 빛이
+   * 사라지기 1.5px 전에 잘렸다. 그 잘린 자국이 "원반 테두리" 로 보이던 것이다.
+   *
+   * 정지점을 13단으로 쪼갠 이유도 있다. 0→0 선형 램프는 반드시 눈에 보이는
+   * 띠(banding)를 남긴다. 그리고 안쪽 22% 를 **평평하게** 둬야 "빛" 이 되고,
+   * 정중앙 한 점에서만 최대인 것은 "연한 원반" 으로 읽힌다.
+   *
+   * 중심을 46% 로 올린 것은 시각 중심이다 — 기하 중심에 정확히 두면 사람 눈에는
+   * 아래로 처져 보인다.
+   */
+  background: radial-gradient(
+    circle closest-side at 50% 46%,
+    rgba(255, 249, 226, 0.92) 0 22%,
+    rgba(255, 243, 205, 0.66) 34%,
+    rgba(255, 238, 186, 0.47) 41%,
+    rgba(255, 236, 179, 0.34) 47%,
+    rgba(255, 236, 179, 0.24) 56.5%,
+    rgba(255, 236, 179, 0.17) 65%,
+    rgba(255, 236, 179, 0.11) 73%,
+    rgba(255, 236, 179, 0.068) 80.2%,
+    rgba(255, 236, 179, 0.038) 86.1%,
+    rgba(255, 236, 179, 0.019) 91%,
+    rgba(255, 236, 179, 0.007) 95.2%,
+    rgba(255, 236, 179, 0) 100%
+  );
   opacity: 0;
   animation: unlock-fade-in 360ms cubic-bezier(0, 0, 0.3, 1) 120ms forwards;
   pointer-events: none;
@@ -1070,6 +1109,42 @@
   position: relative;
   isolation: isolate;
   animation: book-out 520ms 1560ms both;
+}
+
+/*
+ * 동화책 자신의 후광. **무대의 형제가 아니라 책의 자식이다.**
+ *
+ * 뒤에 깔린 rays·glow·bloom 은 전부 무대 중심에 걸려 있는데, 책은 book-out 으로
+ * scale(0.24) → 1.13 → 0.97 → 1 하며 520ms 동안 따로 움직인다. 그러니 그 사이
+ * 내내 후광과 책이 어긋난다 — 눈에는 "빛이 책을 안 따라온다" 로 보인다.
+ * 자식으로 내리면 부모의 transform 을 그대로 물려받아 **절대 어긋날 수 없다.**
+ *
+ * 원이 아니라 **타원**인 이유. 책은 163×200 세로 직사각형이라, 원형 후광을
+ * 씌우면 좌우에 빈 살이 붙고 위아래는 모자란다. 실제로 책 반대각선이 129px 인데
+ * 원형 빛은 105px 에서 죽어 **네 모서리가 빛 밖으로 24px 삐져나왔다.**
+ * ellipse + farthest-side 는 반지름을 축마다 따로 잡아 책 비율을 그대로 따라간다.
+ *
+ * inset 의 % 는 축마다 다른 기준으로 풀린다 — 위아래는 높이, 좌우는 폭. 위를
+ * 아래보다 넓게 준 것이 시각 중심 보정을 상자에 구워 넣은 것이다.
+ */
+.unlock__bookframe::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -38% -34% -26%;
+  background: radial-gradient(
+    ellipse farthest-side at 50% 46%,
+    rgba(255, 252, 240, 0.95) 0 18%,
+    rgba(255, 244, 206, 0.62) 34%,
+    rgba(255, 236, 179, 0.4) 47%,
+    rgba(255, 230, 160, 0.24) 62%,
+    rgba(255, 225, 150, 0.12) 76%,
+    rgba(255, 225, 150, 0.04) 89%,
+    rgba(255, 225, 150, 0) 100%
+  );
+  opacity: 0;
+  animation: unlock-fade-in 420ms ease 1560ms forwards;
+  pointer-events: none;
 }
 
 .unlock__bookframe::after {
