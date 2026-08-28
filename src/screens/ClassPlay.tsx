@@ -695,9 +695,12 @@ export function ClassPlay() {
         subject.id === 'MATH'
           ? `${quiz.fruit.name} ${countLabel(quiz.count)}를 세었어요.`
           : poemText,
+      // 제목을 같이 보낸다. 이게 있으면 서버가 시 본문을 LLM 에 안 넘겨서,
+      // 동화가 시를 통째로 옮겨 적는 대신 "「파도」를 읽었어요" 로 짧게 적는다.
+      poemTitle: subject.id === 'MATH' ? null : poem.title,
       practicedWord: subject.id === 'MATH' ? null : (score?.targetWord ?? null),
     });
-  }, [step, completeCategory, poemText, score, subject, quiz]);
+  }, [step, completeCategory, poemText, poem, score, subject, quiz]);
 
   /** 채점이 짚어준 낱말이 몇 번째 줄에 있는지 — 그 줄에만 형광펜을 긋는다. */
   const targetLine = useMemo(() => {

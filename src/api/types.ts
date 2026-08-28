@@ -123,6 +123,14 @@ export type StorySceneRecord = {
    * 읽었어요" 다. 과일을 센 아이에게 시를 읽었다고 적게 된다.
    */
   classSubject?: 'KOREAN' | 'MATH' | null;
+  /**
+   * 읽은 시의 제목("꽃"·"눈"·"파도"·"감기"). 국어 시간에만 있다.
+   *
+   * **이걸 보내면 동화가 짧아진다.** 안 보내면 서버가 시 본문을 그대로 LLM 에
+   * 넘기고, 네 줄짜리 시가 동화 한 장을 통째로 먹는다. 아이에게 필요한 것은
+   * "무슨 시를 읽었나" 이지 그 시를 다시 읽는 것이 아니다.
+   */
+  poemTitle?: string | null;
   practicedWord?: string | null;
 };
 
