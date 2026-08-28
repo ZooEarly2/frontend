@@ -163,9 +163,24 @@ export const CLASS: ClassScenario = {
    * 섞으면 "몇 개인가" 가 "무엇이 몇 개인가" 가 되어 묻는 것이 둘로 늘어난다.
    */
   fruits: [
-    { id: 'apple', name: '사과', image: '/scenes/class/img_fruit_apple.webp' },
-    { id: 'watermelon', name: '수박', image: '/scenes/class/img_fruit_watermelon.webp' },
-    { id: 'banana', name: '바나나', image: '/scenes/class/img_fruit_banana.webp' },
+    {
+      id: 'apple',
+      name: '사과',
+      image: '/scenes/class/img_fruit_apple.webp',
+      sentenceIds: ['math_1', 'math_2', 'math_3', 'math_4', 'math_5'],
+    },
+    {
+      id: 'watermelon',
+      name: '수박',
+      image: '/scenes/class/img_fruit_watermelon.webp',
+      sentenceIds: ['math_6', 'math_7', 'math_8', 'math_9', 'math_10'],
+    },
+    {
+      id: 'banana',
+      name: '바나나',
+      image: '/scenes/class/img_fruit_banana.webp',
+      sentenceIds: ['math_11', 'math_12', 'math_13', 'math_14', 'math_15'],
+    },
   ],
   /*
    * 동시 세 편. 회차마다 한 편을 뽑는다 — 같은 시만 나오면 두 번째 날부터는

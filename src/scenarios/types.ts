@@ -91,6 +91,17 @@ export type MathFruit = {
   /** 아이에게 읽어줄 이름 */
   name: string;
   image: string;
+  /**
+   * 개수 1~5 의 채점 문장 id. 서버 목록(math_1..15)과 같아야 한다.
+   *
+   * 자리(index)가 곧 개수−1 이라 **순서를 바꾸면 안 된다** — 바꾸면 사과를 센
+   * 아이가 수박 문장으로 채점받는다.
+   *
+   * 짝은 ZooEarly-AI-develop 의 app/core/sentences.py 다. 그쪽 문장을 고치면
+   * countSentence() 가 만드는 글자도 같이 고쳐야 한다 — 화면에 보이는 문장과
+   * 채점하는 문장이 어긋나면 아이가 아무리 잘 읽어도 다른 말이라고 나온다.
+   */
+  sentenceIds: string[];
 };
 
 /**

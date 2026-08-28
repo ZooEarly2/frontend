@@ -15,7 +15,7 @@ export type NativeLanguage = 'KOREAN' | 'CHINESE' | 'VIETNAMESE';
 export type Scenario = 'ARRIVAL' | 'CLASS' | 'LUNCH' | 'DISMISSAL';
 
 /** 문장 목록의 카테고리. 시나리오 enum 과도, 동화 카테고리와도 값이 다르다 — 섞지 않는다. */
-export type SentenceCategory = 'arrival' | 'study' | 'lunch' | 'departure';
+export type SentenceCategory = 'arrival' | 'study' | 'lunch' | 'departure' | 'math';
 
 export type AudioPayload = { data: string; format: string };
 

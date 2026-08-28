@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '@/api/client';
-import { pronunciation, stt, warmUpScoring, type RecordingFile } from '@/api/endpoints';
+import { getSentences, pronunciation, stt, type RecordingFile } from '@/api/endpoints';
 import type { PronunciationResult } from '@/api/types';
 import {
   BigButton,
@@ -119,20 +119,64 @@ export function ClassPlay() {
   const [wrongPicks, setWrongPicks] = useState<number[]>([]);
   /** 맞게 고른 뒤 문장을 읽었나 */
   const [readDone, setReadDone] = useState(false);
-  /** 읽은 말에서 개수가 들렸나. 안 들려도 넘어가지만 칭찬하는 말이 달라진다 */
+  /** 읽은 문장의 발음 채점 결과. null 이면 채점이 아예 안 됐다 */
+  const [readScore, setReadScore] = useState<PronunciationResult | null>(null);
+  /**
+   * 채점 없이 넘어온 경우, 읽은 말에서 개수가 들렸나.
+   *
+   * 서버가 아직 수학 문장을 모를 때만 쓰는 옛 길이다(아래 scorable 참고).
+   */
   const [readWell, setReadWell] = useState(false);
+  /** 문장과 다른 말을 읽어 되물은 횟수 */
+  const [misread, setMisread] = useState(0);
+
+  /** 아이가 맞힌 문장의 채점 id. 개수 1~5 가 곧 자리 0~4 다 */
+  const answerSentenceId = quiz.fruit.sentenceIds[quiz.count - 1];
+
+  /**
+   * 이 서버가 수학 문장을 채점할 수 있나.
+   *
+   * **묻지 않고 부르면 안 된다.** 문장 목록은 서버가 단일 소스로 쥐고 있어서,
+   * 아직 math_* 를 모르는 서버에 보내면 422 INVALID_PARAMETER 가 돌아온다.
+   * 그건 아이가 아무리 잘 읽어도 통과할 수 없는 상태라, 그대로 두면 못 나가는
+   * 화면이 된다. 그래서 화면에 들어올 때 목록을 받아 **실제로 있는지 확인**하고,
+   * 없으면 예전 길(STT 로 받아쓴 글자에서 수를 뽑는 것)로 물러선다.
+   *
+   * null 은 "아직 모른다" 다. 확인이 끝나기 전에는 마이크를 잠가 둔다 —
+   * 여기서 짐작으로 고르면 둘 중 한 길은 반드시 헛돈다.
+   */
+  const [scorable, setScorable] = useState<boolean | null>(null);
 
   /** 맞힌 문장. 보기이자, 그 뒤에 따라 읽을 말이다 */
   const answerSentence = countSentence(quiz.fruit.name, quiz.count);
 
   /** 지금 아이에게 하는 말. 화면의 띠와 소리가 **같은 곳**에서 나온다 */
+  /*
+   * 읽고 난 뒤에 하는 말.
+   *
+   * **채점이 안 된 것과 잘 읽은 것은 다른 일이다.** 둘을 한 갈래로 묶으면
+   * 서버가 죽은 날에도 "또박또박 읽었어요" 가 나간다 — 아이가 어떻게 읽었는지
+   * 아무도 모르는데. 동시 낭독에서 고친 것과 같은 종류의 거짓 칭찬이라 여기도
+   * 갈라 둔다.
+   */
+  const readLine = readScore
+    ? readScore.targetWord
+      ? `"${readScore.targetWord}" 부분을\n조금 더 천천히 읽어볼까요?`
+      : '아주 또박또박 잘 읽었어요!'
+    : scorable === false
+      ? // 채점을 못 하는 서버라 발음은 못 본다. 들린 것까지만 정직하게 말한다.
+        readWell
+        ? '잘했어요! 끝까지 읽었어요.'
+        : '잘했어요! 읽어보았구나.'
+      : '선생님이 잘 못 들었어.\n그래도 끝까지 읽었구나!';
+
   const questionLine =
     step === 'COUNT_READ'
       ? readDone
-        ? readWell
-          ? '잘했어요! 또박또박 읽었어요.'
-          : '잘했어요! 끝까지 읽었어요.'
-        : `맞았어요!\n이제 따라 읽어볼까요?`
+        ? readLine
+        : misread > 0
+          ? '잘 못 들었어. 다시 읽어줄래?'
+          : `맞았어요!\n이제 따라 읽어볼까요?`
       : wrongPicks.length > 0
         ? '다시 한번 세어 볼까요?'
         : '그림에 있는 과일의 개수는 몇 개인가요?';
@@ -173,9 +217,32 @@ export function ClassPlay() {
    * 서버가 90초 안에 온 노크는 무시하므로 헛되이 겹치지 않는다.
    */
   useEffect(() => {
-    if (step !== 'INTRO' && step !== 'POEM') return;
-    void warmUpScoring();
-  }, [step]);
+    if (step !== 'INTRO' && step !== 'POEM' && step !== 'COUNT') return;
+    let watching = true;
+    /*
+     * 이 한 요청이 두 가지를 한다.
+     *
+     * 1) **예열.** 서버는 이 목록을 내주면서 채점 컨테이너를 깨운다. 예전에
+     *    수업시간만 목록을 부를 일이 없어서 예열이 한 번도 안 걸렸고, 낭독
+     *    채점이 늘 콜드 스타트(38~68초 실측)를 그대로 맞았다.
+     * 2) **이 서버가 수학 문장을 아는지 확인.** 목록이 곧 답이라 따로 물어볼
+     *    필요가 없다. 422 를 받아 보고 짐작하는 것보다 확실하다 —
+     *    422 는 "문장을 모른다" 와 "채점할 말소리가 없다" 가 같은 코드로 온다.
+     */
+    getSentences().then(
+      (list) => {
+        if (watching) setScorable(list.some((item) => item.sentenceId === answerSentenceId));
+      },
+      () => {
+        // 준비 운동이지 요청이 아니다. 다만 모르면 옛 길로 간다 — 아는 길이
+        // 하나라도 열려 있어야 아이가 화면에 갇히지 않는다.
+        if (watching) setScorable(false);
+      },
+    );
+    return () => {
+      watching = false;
+    };
+  }, [step, answerSentenceId]);
 
   useEffect(() => {
     pageRef.current = page;
@@ -327,19 +394,50 @@ export function ClassPlay() {
       abort.current = controller;
       setBusy(true);
       try {
-        const result = await stt(audio, controller.signal);
-        if (!alive.current) return;
-        setReadWell(heardCount(result.text) === quiz.count);
+        if (scorable) {
+          /*
+           * 진짜 발음 채점이다. STT 를 거치지 않는다 — 발음은 글자로 알 수 없어서
+           * 녹음을 그대로 보낸다. 아이가 고른 그 문장이 서버 목록에 있으므로
+           * 국어 시간의 동시 낭독과 **같은 채점**을 받는다.
+           */
+          const result = await pronunciation(audio, answerSentenceId, controller.signal);
+          if (!alive.current) return;
+          setReadScore(result);
+        } else {
+          // 서버가 아직 이 문장을 모른다. 무엇을 말했는지까지만 본다.
+          const result = await stt(audio, controller.signal);
+          if (!alive.current) return;
+          setReadWell(heardCount(result.text) === quiz.count);
+        }
+        if (alive.current) setReadDone(true);
       } catch (error) {
         if (error instanceof ApiError && error.code === 'CANCELLED') return;
+        if (!alive.current) return;
+        /*
+         * 422 는 "네 말이 문장에 닿지 않았다" 다 — 아주 다른 말을 했거나,
+         * 채점할 만한 말소리가 아예 없었거나.
+         *
+         * **여기가 예전에 뚫려 있던 구멍이다.** 옛 방식(STT + 숫자 뽑기)은
+         * 마이크를 누르고 가만히 있어도 "끝까지 읽었어요" 로 통과시켰다.
+         * 채점은 그걸 구분해서 알려주고 있었고, 이제 그 신호를 쓴다 —
+         * 그냥 넘기지 않고 다시 읽게 한다.
+         *
+         * 코드를 갈라 보지 않고 422 를 통째로 보는 이유는 동시 낭독과 같다.
+         * 아이 입장에서는 전부 "다시 해보자" 하나다. 문장을 모르는 경우는
+         * 여기 오지 않는다 — 위에서 목록으로 미리 걸렀다.
+         */
+        if (scorable && error instanceof ApiError && error.status === 422) {
+          setMisread((n) => n + 1);
+          return; // COUNT_READ 에 그대로 머문다
+        }
         // 서버가 안 되는 것은 아이 잘못이 아니다. 읽은 것은 읽은 것이다.
-        if (alive.current) setReadWell(false);
+        setReadScore(null);
+        setReadDone(true);
       } finally {
-        if (alive.current) setReadDone(true);
         if (alive.current && abort.current === controller) setBusy(false);
       }
     },
-    [quiz.count],
+    [quiz.count, answerSentenceId, scorable],
   );
 
   const recorder = useRecorder(subject.id === 'MATH' ? onReadAloud : onRecorded);
@@ -717,7 +815,13 @@ export function ClassPlay() {
                   </span>
                 ) : (
                   <span className="pill-note">
-                    {readDone ? '참 잘했어요' : '마이크를 누르고 이 문장을 읽어보세요'}
+                    {readDone
+                      ? '참 잘했어요'
+                      : scorable === null
+                        ? // 채점을 받을 수 있는지 확인하는 동안. 여기서 마이크를 열면
+                          // 어느 길로 보낼지 모르는 채로 녹음을 받게 된다.
+                          '선생님을 부르는 중이에요'
+                        : '마이크를 누르고 이 문장을 읽어보세요'}
                   </span>
                 )
               ) : null}
@@ -739,7 +843,7 @@ export function ClassPlay() {
                       recording={recorder.isRecording}
                       level={recorder.level}
                       progress={recorder.progress}
-                      disabled={busy}
+                      disabled={busy || scorable === null}
                       hint={recorder.isRecording ? '다 읽었으면 다시 눌러요' : '눌러서 읽기'}
                       onClick={async () => {
                         if (recorder.isRecording) {
@@ -763,6 +867,17 @@ export function ClassPlay() {
               {micBlocked && step === 'COUNT_READ' && !readDone ? (
                 <BigButton tone="ghost" onClick={() => setReadDone(true)}>
                   마이크 없이 넘어가기
+                </BigButton>
+              ) : /*
+                   세 번을 다시 읽어도 닿지 않으면 길을 열어준다. 동시 낭독과 같은
+                   한도다 — 발음이 아직 여문 나이가 아니라, 닿지 않는 날이 있다.
+                   다만 칭찬은 없다: readScore 가 null 이라 위 문구가 "선생님이 잘
+                   못 들었어" 로 정직하게 말한다. 개수는 이미 맞힌 뒤라 여기서
+                   넘어가도 문제를 푼 것이다.
+                 */
+              step === 'COUNT_READ' && !readDone && misread >= 3 ? (
+                <BigButton tone="ghost" onClick={() => setReadDone(true)}>
+                  괜찮아, 다음으로
                 </BigButton>
               ) : null}
             </div>
