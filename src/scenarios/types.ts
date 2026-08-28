@@ -124,13 +124,26 @@ export type ClassSubject = {
   teacherLine: string;
   /** 책을 펴는 버튼 문구 */
   openLabel: string;
+  /**
+   * 다 끝냈을 때 깔리는 배경.
+   *
+   * 이것도 과목마다 다르다 — 국어 완료 그림에는 칠판에 국어 이야기가 적혀
+   * 있어서, 수학을 다 푼 아이가 국어 시간을 마친 화면을 보게 된다.
+   */
+  complete: string;
+  /**
+   * 완료 화면에서 "무엇을 했는지" 짚어주는 말.
+   *
+   * 한 문장으로 뭉뚱그리면 수학을 한 아이에게 동시를 읽었다고 말하게 된다.
+   * 오늘 한 일을 정확히 되짚어 주는 것이 이 화면이 하는 일의 전부다.
+   */
+  completeLine: string;
 };
 
 export type ClassScenario = {
   id: 'CLASS';
   title: string;
   tagline: string;
-  scenes: { complete: string };
   /** 화면 위에 올리는 소품 그림 */
   props: { bookFound: string; swipeHint: string };
   /** 회차마다 둘 중 하나를 뽑는다 */

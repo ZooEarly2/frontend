@@ -116,11 +116,6 @@ export const CLASS: ClassScenario = {
   id: 'CLASS',
   title: '수업시간',
   tagline: '국어도 하고 수학도 해요',
-  scenes: {
-    // 수업시간 그림만 webp 다. 하늘 계조가 있는 그림이라 PNG 팔레트로 줄이면
-    // 얼룩이 남고, 줄이지 않으면 한 장에 700KB 가 넘었다.
-    complete: '/scenes/class/bg_class_complete2.webp',
-  },
   /** 책 넘기기 화면이 쓰는 그림 */
   props: {
     bookFound: '/scenes/class/img_class_bookpage.webp',
@@ -143,6 +138,10 @@ export const CLASS: ClassScenario = {
       book: '/scenes/class/img_class_koreanbook.webp',
       teacherLine: '국어책 {page}페이지를 펴보자!',
       openLabel: '국어책 펴기',
+      // 수업시간 그림만 webp 다. 하늘 계조가 있는 그림이라 PNG 팔레트로 줄이면
+      // 얼룩이 남고, 줄이지 않으면 한 장에 700KB 가 넘었다.
+      complete: '/scenes/class/bg_class_complete2.webp',
+      completeLine: '보석을 하나 받았어요! 동시를 멋지게 읽었어요.',
     },
     MATH: {
       id: 'MATH',
@@ -153,6 +152,8 @@ export const CLASS: ClassScenario = {
       book: '/scenes/class/img_class_mathbook.webp',
       teacherLine: '수학책 {page}페이지를 펴보자!',
       openLabel: '수학책 펴기',
+      complete: '/scenes/class/bg_class_math_complete.webp',
+      completeLine: '보석을 하나 받았어요! 과일을 잘 세었어요.',
     },
   },
   /** 수학 문제 그림 — 과일은 이 위에 얹는다 */

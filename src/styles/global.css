@@ -303,6 +303,8 @@ img {
   line-height: 1.4;
   text-align: center;
   white-space: pre-line;
+  /* 한국어는 어절 중간에서 끊기면 읽을 수 없는 토막이 된다 */
+  word-break: keep-all;
 }
 
 .lead {
@@ -312,6 +314,8 @@ img {
   color: var(--ink-soft);
   text-align: center;
   white-space: pre-line;
+  /* 실제로 "과일을 세고 문장 / 도 읽었어요" 로 갈라졌다. 어절째로 넘긴다 */
+  word-break: keep-all;
 }
 
 .caption {

@@ -27,7 +27,7 @@ import { useAppState } from '@/store/appState';
 import './screens.css';
 
 /**
- * 수업시간 — 국어책을 펴고 동시를 같이 읽는다.
+ * 수업시간 — 책을 펴고 국어면 동시를 읽고, 수학이면 과일을 센다.
  *
  * 다른 시나리오와 달리 **고를 것이 없다.** 문장 목록의 study 항목이 하나뿐이라
  * "표현 고르기" 화면 자체가 없고, 시 전체가 한 문장으로 채점된다.
@@ -396,7 +396,7 @@ export function ClassPlay() {
   const background = plain
     ? undefined
     : step === 'COMPLETE'
-      ? CLASS.scenes.complete
+      ? subject.complete
       : step === 'FIND_PAGE' || step === 'FIND_PAGE_DONE'
         ? subject.find
         : subject.scene;
@@ -889,7 +889,7 @@ export function ClassPlay() {
               <div className="card gem-reward-card" style={{ width: '100%' }}>
                 <p className="title">수업시간 완료!</p>
                 <p className="lead" style={{ marginTop: 6 }}>
-                  보석을 하나 받았어요! 동시를 멋지게 읽었어요.
+                  {subject.completeLine}
                 </p>
                 <GemKept category="CLASS" isCompleted={isCompleted} />
               </div>
