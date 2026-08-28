@@ -2074,6 +2074,9 @@
   text-align: center;
   white-space: pre-line;
   text-wrap: balance;
+  /* 좁은 화면에서 "과일의 개 / 수는" 처럼 낱말 한가운데가 갈라졌다.
+     한국어는 어절째로 넘겨야 읽힌다 */
+  word-break: keep-all;
   animation: quiz-band-in 0.26s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
@@ -2128,51 +2131,159 @@
  * 가로로 긴 상자 다섯을 세로로 쌓는다. 나란히 놓으면 한 칸이 좁아져 "사과가
  * 다섯 개 있어요" 가 줄바꿈되는데, 아직 한글이 서툰 아이에게 토막 난 문장은
  * 읽을 것이 아니라 무늬가 된다. 한 줄에 한 문장이 통째로 들어가야 한다.
+ *
+ * **처음에는 흰 바탕에 진한 민트 테두리를 다섯 줄 다 둘렀다.** 그게 만든 인상은
+ * 아이 앱이 아니라 설문지였다. 원인이 둘이었다.
+ *
+ *  1. 색으로 경계를 그으려 한 것. 이 앱 팔레트로는 **불가능하다** — 흰 바탕 대비
+ *     mint-deep 2.37:1, coral 2.03, sky-deep 2.07, line-strong 1.49 로 파스텔
+ *     토큰 중 WCAG 1.4.11 의 3:1 을 넘는 것이 하나도 없다(넘는 건 글자색인
+ *     ink-soft 4.49 와 ink 10.74 뿐이다). 즉 예전 테두리는 촌스럽기만 한 게
+ *     아니라 **기준 미달이었다.** 그래서 경계는 옅은 선 + 아주 약한 그림자가
+ *     지고, 강조색은 테두리에서 뺀다.
+ *  2. 가운데 정렬한 글자만 있고 위계가 없던 것. 왼쪽에 번호를 세우면 다섯 문장의
+ *     첫 글자가 세로로 맞아 읽을 자리가 생기고, 무엇보다 **한글을 아직 못 읽는
+ *     아이가 숫자만 보고도 답할 수 있다.** 이 앱에서 그건 취향이 아니라 접근성이다.
  */
 .count-choices {
   display: grid;
-  gap: 6px;
+  /* 화면이 크면 간격도 같이 벌어진다. 짧은 폰에서는 4px 까지 붙여 다섯 줄을 살린다 */
+  gap: clamp(4px, 1.1vh, 10px);
   width: 100%;
   max-width: 390px;
 }
 
+/*
+ * 보기 한 줄.
+ *
+ * 높이를 px 로 못박지 않는다. 44px 은 손가락이 빗나가지 않는 **하한**이지 목표가
+ * 아니다 — 아동 발달 연구가 권하는 크기는 2cm, 즉 76px 쯤이다. 큰 폰에서까지
+ * 44px 로 납작하게 두면 그것 자체가 싸구려로 보인다. 그래서 화면 높이를 따라
+ * 늘리되(6.6vh) 위아래로 못을 박는다.
+ */
 .count-choice {
-  /* 44px 는 손가락이 빗나가지 않는 최소 크기다. 다섯을 쌓아도 이 아래로 안 간다 */
-  min-height: 44px;
-  padding: 10px 16px;
-  border-radius: var(--r-md);
-  border: 2px solid var(--mint-deep);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: clamp(44px, 6.6vh, 66px);
+  /* 위아래 여백도 화면을 따라 흐른다. 8px 로 못박아 두면 짧은 폰에서 줄 높이가
+     44px 하한을 넘겨 버려, 그만큼이 고스란히 문제 그림에서 깎여 나간다 */
+  padding: clamp(4px, 0.9vh, 9px) 16px clamp(4px, 0.9vh, 9px) 10px;
+  border-radius: var(--r-lg);
   background: var(--surface);
-  color: var(--ink);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 17px;
-  line-height: 1.3;
-  text-align: center;
-  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease,
-    opacity 0.15s ease;
+  /* 강조색이 아니라 종이 같은 베이지 선. 두께도 2px 에서 내렸다 —
+     한국 정부 디자인시스템(KRDS)에서 2px 은 오류 상태에 쓰는 두께다 */
+  border: 1.5px solid var(--line);
+  /* 선만으로는 크림 배경에서 거의 안 보인다. 앱의 다른 선택지(.choice)와 같은
+     방식으로, 아주 약한 그림자가 경계를 대신 진다 */
+  box-shadow: var(--shadow-soft);
+  text-align: left;
+  transition:
+    transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
+/*
+ * 누르는 느낌은 아래턱이 아니라 **움직임**으로 만든다.
+ *
+ * 예전에 큰 버튼에 깔았던 `0 5px 0` 짜리 단단한 턱은 "게임 버튼 에셋" 으로 보여
+ * 이미 한 번 걷어냈다. 살짝 줄면서 그림자가 꺼지면 판이 바닥에 닿는 것처럼
+ * 보인다 — 두께 없이 같은 촉감이 난다.
+ */
 .count-choice:active {
   transform: scale(0.97);
+  box-shadow: none;
   background: var(--mint-tint);
+  border-color: var(--mint);
+}
+
+/* 판이 민트로 물드는 동안 칩까지 같은 색이면 칩이 사라진다. 한 단계 진하게 */
+.count-choice:active .count-choice__num {
+  background: var(--mint);
+}
+
+/*
+ * 왼쪽 번호.
+ *
+ * **동그라미가 아니라 모서리 둥근 네모다.** 원형 배지는 라디오 버튼으로 읽혀서
+ * 곧장 설문지가 된다 — 고치려던 바로 그 인상이다. 정부가 만든 중도입국 학생용
+ * 한국어 학습 사이트(모두의 한국어)도 아동 화면에서 라운드 사각형을 쓴다.
+ *
+ * 그리고 이 숫자는 장식이 아니다. 문장을 못 읽는 아이에게는 **이것이 답 자체다** —
+ * 과일을 세어 나온 수와 같은 칸을 누르면 된다.
+ */
+.count-choice__num {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: clamp(30px, 4.6vh, 44px);
+  height: clamp(30px, 4.6vh, 44px);
+  border-radius: 12px;
+  /*
+   * 질문 띠와 같은 민트다. 처음엔 앱의 다른 선택지처럼 모래색(--sand)을 썼는데,
+   * 흰 판 위 1.10:1 이라 칩이 있는지 없는지도 모를 만큼 묻혔다. 그 화면에 색이라곤
+   * 위쪽 띠 하나뿐이라 전체가 밋밋하기도 했다.
+   *
+   * 민트로 바꾸니 두 가지가 같이 풀린다. 화면이 "민트로 묻고 민트로 고른다" 는
+   * 한 벌이 되고, **살아 있는 보기와 이미 걸러낸 보기(빈 칩)의 차이가 또렷해진다.**
+   * 글자 대비도 4.09:1 에서 9.69:1 로 올라간다.
+   */
+  background: var(--mint-tint);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(16px, 2.2vh, 20px);
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.count-choice__text {
+  flex: 1;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(16px, 2.3vh, 19px);
+  line-height: 1.3;
+  color: var(--ink); /* 흰 바탕 10.7:1. 상태가 바뀌어도 글자색은 절대 낮추지 않는다 */
+  /* 한국어는 어절 중간에서 끊기면 읽을 수 없는 토막이 된다.
+     "바나나가 다섯 개 있어 / 요" 가 아니라 어절째로 넘긴다 */
+  word-break: keep-all;
 }
 
 /*
  * 이미 눌러 봤는데 아니었던 보기.
  *
- * **빨갛게 칠하지 않는다.** 빨강은 아이에게 "너 틀렸어" 로 읽히고, 다섯 중
- * 넷까지 빨개진 화면은 다 틀린 화면처럼 보인다. 여기서 하려는 말은 꾸중이
- * 아니라 "여긴 이미 가 봤어" 다. 그래서 색을 빼고 뒤로 물린다.
+ * 지우지 않고 남긴다 — 무엇을 눌러 봤는지 보여야 같은 것을 또 누르지 않는다.
+ * 다섯 중에 고르는 일을 기억에만 맡기면 헛수고를 되풀이한다.
  *
- * 누르지 못하게 막지도 않는다 — 다시 눌러도 아무 일이 없으니 해로울 것이 없고,
- * 막아 두면 손가락이 빗나갔을 때 앱이 고장 난 것처럼 느껴진다.
+ * **빨강을 쓰지 않는다.** 넷까지 빨개진 화면은 아이에게 "다 틀렸다" 로 읽힌다.
+ * 여기서 하려는 말은 꾸중이 아니라 "여긴 이미 가 봤어" 다.
+ *
+ * **글자도 흐리게 하지 않는다.** 흔한 처리지만, 이 팔레트에서 글자를 낮추면
+ * 대비가 본문 기준(4.5:1) 아래로 떨어져 아예 안 읽히는 줄이 된다. 대신 색이
+ * 아닌 단서 셋으로 말한다 — 판이 바닥색으로 가라앉고(채움), 그림자가 꺼지고,
+ * 번호가 채운 칸에서 **빈 테두리로** 바뀐다.
  */
 .count-choice[data-wrong] {
-  opacity: 0.42;
+  /*
+   * 바탕 쪽으로 가라앉힌다.
+   *
+   * 처음엔 --sand 로 채웠는데 화면에 놓고 보니 **거꾸로였다** — 흰 줄들보다
+   * 진해서 혼자 앞으로 나오는 바람에, 이미 걸러진 줄이 오히려 고른 줄처럼 보였다.
+   * 페이지 바탕(--cream)에 가까운 색으로 바꿔 뒤로 물린다.
+   */
+  background: var(--cream-deep);
   border-color: var(--line);
-  border-style: dashed;
-  font-weight: 600;
+  /* 그림자를 걷으면 판이 떠 있지 않고 바닥에 눕는다 — 색 아닌 두 번째 단서다 */
+  box-shadow: none;
+}
+
+.count-choice[data-wrong] .count-choice__num {
+  background: transparent;
+  border: 1.5px solid var(--line-strong);
+  color: var(--ink-faint);
 }
 
 /*
@@ -2182,22 +2293,14 @@
  * 폰에서는 그림이 137px 까지 눌린다. 그 크기면 과일 한 개가 22px 라 **세라고
  * 낸 문제인데 무엇이 놓여 있는지 안 보인다.**
  *
- * 그래서 띠와 보기 사이의 여백을 걷어 그림에 넘긴다. **누르는 칸 높이(44px)는
- * 건드리지 않는다** — 손가락이 빗나가지 않는 최소 크기이고, 이 앱을 쓰는 아이는
- * 대여섯 살이라 여기서 더 줄이면 원하는 것을 못 누른다. 글자와 여백만 줄인다.
+ * 그래서 띠의 여백을 걷어 그림에 넘긴다. **누르는 칸은 건드리지 않는다** —
+ * 위의 clamp 하한 44px 이 작은 화면에서 이미 걸려 있고, 대여섯 살 손가락에는
+ * 그게 최소치다.
  */
 @media (max-height: 740px) {
   .quiz-band {
     padding: 10px 14px;
     font-size: 15px;
-  }
-
-  .count-choice {
-    font-size: 15px;
-  }
-
-  .count-choices {
-    gap: 4px;
   }
 
   /* 그림과 보기가 서로 붙지 않을 만큼만 남긴다 */

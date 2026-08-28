@@ -683,7 +683,21 @@ export function ClassPlay() {
                           setWrongPicks((prev) => (prev.includes(n) ? prev : [...prev, n]));
                         }}
                       >
-                        {countSentence(quiz.fruit.name, n)}
+                        {/*
+                          숫자를 왼쪽에 따로 세운다.
+
+                          장식이 아니다 — 한글을 아직 못 읽는 아이에게는 **이것이
+                          답 자체다.** 과일을 세어 나온 수와 같은 칸을 누르면 된다.
+                          문장은 그 옆에서 "그 수를 한국어로는 이렇게 말한다" 를
+                          가르친다. 읽을 수 있는 아이에게는 문장이, 아직 못 읽는
+                          아이에게는 숫자가 길이 된다.
+                        */}
+                        <span className="count-choice__num" aria-hidden>
+                          {n}
+                        </span>
+                        <span className="count-choice__text">
+                          {countSentence(quiz.fruit.name, n)}
+                        </span>
                       </button>
                     );
                   })}
