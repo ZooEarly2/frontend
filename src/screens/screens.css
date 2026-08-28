@@ -2292,7 +2292,18 @@
 .count-choice[data-wrong] .count-choice__num {
   background: transparent;
   border: 1.5px solid var(--line-strong);
-  color: var(--ink-faint);
+  /*
+   * 글자는 --ink 로 남긴다.
+   *
+   * --ink-faint 로 낮춰 뒀는데 --cream-deep 위에서 2.18:1 이라 본문 기준(4.5:1)에
+   * 한참 못 미쳤다. 바로 위 [data-wrong] 규칙의 주석이 "글자를 흐리게 하지
+   * 않는다 — 이 팔레트에서 낮추면 아예 안 읽히는 줄이 된다" 고 적어 놓고,
+   * 정작 칩 안의 숫자에서 그 짓을 하고 있었다. 그 숫자는 못 읽는 아이에게
+   * 답 자체라 더욱 낮출 수 없다.
+   *
+   * 상태는 이미 셋이 진다 — 채움이 빠지고, 테두리만 남고, 판이 가라앉는다.
+   */
+  color: var(--ink);
 }
 
 /*

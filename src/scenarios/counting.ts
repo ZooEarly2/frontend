@@ -50,11 +50,50 @@ const SPOKEN: Record<number, string[]> = {
  */
 const FRUIT_WORDS = ['사과', '수박', '바나나'];
 
-function normalize(text: string): string {
-  let out = text.replace(/[\s.,!?~"'·]/g, '');
-  for (const word of FRUIT_WORDS) out = out.split(word).join('');
+const PUNCT = /[.,!?~"'·]/g;
+
+/**
+ * 과일 이름과 **거기 붙은 조사까지** 지운다.
+ *
+ * 조사를 남기면 "수박이 개 있어요"(아이가 수를 빼먹고 말한 경우)가 "이개" 가 되어
+ * 2 로 읽혔다. 아이는 개수를 말하지 않았는데 답을 맞힌 것이 된다.
+ */
+function stripFruit(text: string): string {
+  let out = text;
+  for (const word of FRUIT_WORDS) out = out.replace(new RegExp(`${word}[이가]?`, 'g'), '');
   return out;
 }
+
+/** 띄어쓰기까지 지운 꼴. "개" 가 붙은 수를 찾을 때 쓴다 */
+function normalize(text: string): string {
+  return stripFruit(text.replace(PUNCT, '')).replace(/\s/g, '');
+}
+
+/** 어절로 쪼갠 꼴. 홀로 선 낱말을 찾을 때 쓴다 */
+function tokens(text: string): string[] {
+  return text.replace(PUNCT, '').split(/\s+/).filter(Boolean);
+}
+
+/** "개" 가 붙은 꼴 — 다른 말 속에 묻혀 있어도 센다 */
+const COUNTER_FORMS: readonly (readonly [number, string])[] = Object.entries(SPOKEN)
+  .flatMap(([n, forms]) =>
+    forms.filter((f) => f.endsWith('개')).map((f) => [Number(n), f] as const),
+  )
+  // 긴 꼴부터 본다. "다섯개" 를 "세개" 보다 먼저 봐야 한다
+  .sort((a, b) => b[1].length - a[1].length);
+
+/**
+ * 열 자리 앞말. 바로 뒤에 붙은 세는 말은 무시한다.
+ *
+ * "열두 개" 가 "두개" 로 걸려 2 가 됐다. 열두 개를 말한 아이가 두 개를 맞힌 것이
+ * 된다. 이 그림에는 다섯 개까지만 놓이므로, 열 자리를 말했다면 답이 아니다.
+ */
+const TENS = ['열', '스물', '서른', '마흔', '쉰'];
+
+/** 홀로 선 낱말 — 어절이 통째로 같을 때만 센다 */
+const BARE_WORDS: readonly (readonly [number, string])[] = Object.entries(SPOKEN).flatMap(
+  ([n, forms]) => forms.filter((f) => !f.endsWith('개')).map((f) => [Number(n), f] as const),
+);
 
 /**
  * 말한 글자에서 개수를 뽑는다. 못 알아들으면 `null`.
@@ -71,19 +110,33 @@ export function heardCount(text: string | null | undefined): number | null {
   const cleaned = normalize(text);
   if (!cleaned) return null;
 
-  const digit = cleaned.match(/[1-9]/);
+  /*
+   * 숫자 덩어리를 통째로 읽는다. 한 자리만 보면 "10개" 가 1 이 되어 범위 검사를
+   * 그냥 지나간다 — 열 개를 말한 아이가 한 개를 맞혔다고 나온다.
+   */
+  const digit = cleaned.match(/\d+/);
   if (digit) {
     const n = Number(digit[0]);
     return n >= 1 && n <= MAX_COUNT ? n : null;
   }
 
-  // 긴 꼴부터 맞춰 본다. "다섯개" 를 "다섯" 보다 먼저 봐야 한다.
-  const table = Object.entries(SPOKEN)
-    .flatMap(([n, forms]) => forms.map((form) => [Number(n), form] as const))
-    .sort((a, b) => b[1].length - a[1].length);
+  for (const [n, form] of COUNTER_FORMS) {
+    const at = cleaned.indexOf(form);
+    if (at < 0) continue;
+    const before = cleaned.slice(0, at);
+    if (TENS.some((tens) => before.endsWith(tens))) continue;
+    return n;
+  }
 
-  for (const [n, form] of table) {
-    if (cleaned.includes(form)) return n;
+  /*
+   * 홀로 선 낱말은 **어절이 통째로 같을 때만** 센다.
+   *
+   * 부분 문자열로 찾았더니 "하나도 몰라요" 가 1 이 됐다. 모르겠다고 말한 아이가
+   * 정답을 맞힌 것이 된다. "둘이서"·"넷째"·"셋방" 도 마찬가지 자리다.
+   */
+  const words = tokens(text);
+  for (const [n, form] of BARE_WORDS) {
+    if (words.includes(form)) return n;
   }
   return null;
 }

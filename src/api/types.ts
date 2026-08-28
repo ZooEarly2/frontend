@@ -99,7 +99,22 @@ export type StorySceneRecord = {
   category: StorySceneCategory;
   partnerLine?: string | null;
   childSaid?: string | null;
+  /**
+   * 수업시간에 한 일.
+   *
+   * 이름이 poemText 인 것은 처음에 수업시간이 동시 읽기 하나뿐이었기 때문이다.
+   * 지금은 수학(과일 세기)도 있어서 이름만으로는 무엇인지 알 수 없다 —
+   * 어느 쪽인지는 아래 classSubject 가 말한다.
+   */
   poemText?: string | null;
+  /**
+   * 수업시간의 과목. 안 보내면 서버가 국어(동시)로 본다.
+   *
+   * **이걸 안 보내면 동화가 거짓말을 한다.** 서버는 poemText 를
+   * "아이가_읽은_동시" 라는 이름으로 LLM 에 넘기고, 대체 문구도 "동시를 또박또박
+   * 읽었어요" 다. 과일을 센 아이에게 시를 읽었다고 적게 된다.
+   */
+  classSubject?: 'KOREAN' | 'MATH' | null;
   practicedWord?: string | null;
 };
 

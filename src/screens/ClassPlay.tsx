@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '@/api/client';
-import {
-  getSentences,
-  pronunciation,
-  stt,
-  warmUpScoring,
-  type RecordingFile,
-} from '@/api/endpoints';
+import { getSentences, pronunciation, stt, type RecordingFile } from '@/api/endpoints';
 import type { PronunciationResult } from '@/api/types';
 import {
   BigButton,
@@ -134,6 +128,8 @@ export function ClassPlay() {
   const [readScore, setReadScore] = useState<PronunciationResult | null>(null);
   /** 문장과 다른 말을 읽어 되물은 횟수 */
   const [misread, setMisread] = useState(0);
+  /** 채점이 아예 안 됐나(서버가 죽었거나 시간이 넘었다). 못 들은 것과는 다른 일이다 */
+  const [readFailed, setReadFailed] = useState(false);
   /**
    * 방금 맞게 골랐나 — 색종이를 터뜨릴지 정한다.
    *
@@ -141,6 +137,16 @@ export function ClassPlay() {
    * 축하하면 색종이가 무슨 뜻인지 흐려진다.
    */
   const [justPicked, setJustPicked] = useState(false);
+
+  /**
+   * 지금 단계. 응답이 늦게 온 뒤에도 화면을 되돌리지 않으려고 들고 있다.
+   *
+   * 채점은 왕복이 길다. 그 사이 아이가 "괜찮아, 다음으로" 를 눌러 완료 화면에
+   * 가 있는데 응답이 도착하면, 예전에는 그대로 setStep 을 불러 **보석 화면을
+   * 걷어내고 읽기 화면으로 도로 끌어냈다.** alive 만 봐서는 못 막는다 —
+   * 화면은 살아 있고 단계만 앞으로 간 경우이기 때문이다.
+   */
+  const stepRef = useRef<Step>('INTRO');
 
   /** 아이가 맞힌 문장의 채점 id. 개수 1~5 가 곧 자리 0~4 다 */
   const answerSentenceId = quiz.fruit.sentenceIds[quiz.count - 1];
@@ -174,7 +180,11 @@ export function ClassPlay() {
   /** 짚어주는 화면에서 하는 말. 잘 읽은 경우는 여기 오지 않는다 — 칭찬 화면이 맡는다 */
   const readLine = readScore?.targetWord
     ? `"${readScore.targetWord}" 부분을\n조금 더 천천히 읽어볼까요?`
-    : '선생님이 잘 못 들었어.\n그래도 끝까지 읽었구나!';
+    : readFailed
+      ? // 채점이 아예 안 됐다. 아이가 어떻게 읽었는지 아무도 모르므로 칭찬하지 않는다.
+        '선생님이 잘 못 들었어.\n그래도 끝까지 읽었구나!'
+      : // 들리기는 했는데 문장과 달랐다. 못 들었다고 하면 그것도 사실이 아니다.
+        '잘 들었어요.\n한 번 더 또박또박 읽어볼까요?';
 
   /*
    * 칭찬 화면의 아래 한 줄.
@@ -239,18 +249,16 @@ export function ClassPlay() {
    * 중이에요" 만 떠 있고 다시 물어볼 기회도 없다. 확인은 화면당 한 번이면 된다.
    */
   useEffect(() => {
-    void warmUpScoring();
-  }, []);
-
-  useEffect(() => {
-    if (subject.id !== 'MATH') return;
     getSentences().then(
       (list) => {
-        if (alive.current) setScorable(list.some((item) => item.sentenceId === answerSentenceId));
+        // 응답을 받는 것 자체가 예열이다. 국어는 결과를 쓸 일이 없다.
+        if (alive.current && subject.id === 'MATH') {
+          setScorable(list.some((item) => item.sentenceId === answerSentenceId));
+        }
       },
       () => {
         // 모르면 옛 길로 간다 — 아는 길이 하나라도 열려 있어야 아이가 갇히지 않는다.
-        if (alive.current) setScorable(false);
+        if (alive.current && subject.id === 'MATH') setScorable(false);
       },
     );
   }, [subject.id, answerSentenceId]);
@@ -308,6 +316,22 @@ export function ClassPlay() {
     return () => {
       cancelled = true;
     };
+  }, [step]);
+
+  /*
+   * 되묻는 말을 소리로도 들려준다.
+   *
+   * 국어(offScript)에는 이 이펙트가 있는데 수학(misread)만 없었다. 그래서 띠는
+   * 다시 나타나는데 아무 소리도 안 났다 — 한글을 아직 못 읽는 아이에게는 눌러도
+   * 반응이 없는 화면이다. 정작 이 앱을 쓰는 아이 대부분이 그렇다.
+   */
+  useEffect(() => {
+    if (misread === 0) return;
+    void announce(READ_RETRY_LINE, 'KOREAN', 'TEACHER');
+  }, [misread]);
+
+  useEffect(() => {
+    stepRef.current = step;
   }, [step]);
 
   const poemText = poem.lines.join(' ');
@@ -427,6 +451,7 @@ export function ClassPlay() {
       const controller = new AbortController();
       abort.current = controller;
       setBusy(true);
+      setReadFailed(false);
       try {
         if (scorable) {
           /*
@@ -435,7 +460,7 @@ export function ClassPlay() {
            * 국어 시간의 동시 낭독과 **같은 채점**을 받는다.
            */
           const result = await pronunciation(audio, answerSentenceId, controller.signal);
-          if (!alive.current) return;
+          if (!alive.current || stepRef.current !== 'COUNT_READ') return;
           setReadScore(result);
           // 잘함/못함 판정은 서버가 한다. 앱은 targetWord 가 null 인지만 본다 —
           // 등교하기의 따라 말하기와 같은 갈림길이다.
@@ -443,13 +468,25 @@ export function ClassPlay() {
         } else {
           // 서버가 아직 이 문장을 모른다. 무엇을 말했는지까지만 본다.
           const result = await stt(audio, controller.signal);
-          if (!alive.current) return;
-          const heard = heardCount(result.text) === quiz.count;
-          setStep(heard ? 'COUNT_PRAISE' : 'COUNT_FEEDBACK');
+          if (!alive.current || stepRef.current !== 'COUNT_READ') return;
+          /*
+           * **아무 소리도 못 알아들은 것과 다른 말을 한 것은 다른 일이다.**
+           *
+           * 둘을 묶어 두었더니 마이크를 누르고 가만히 있어도 "그래도 끝까지
+           * 읽었구나!" 가 화면에 뜨고 소리로도 나갔다 — 아이는 한 마디도 하지
+           * 않았는데. 채점 경로에서는 422 로 걸러지는 자리가 이쪽에만 뚫려
+           * 있었다. 아무것도 안 들렸으면 그때와 똑같이 다시 읽게 한다.
+           */
+          const said = (result.text ?? '').trim();
+          if (!said) {
+            setMisread((n) => n + 1);
+            return; // COUNT_READ 에 그대로 머문다
+          }
+          setStep(heardCount(said) === quiz.count ? 'COUNT_PRAISE' : 'COUNT_FEEDBACK');
         }
       } catch (error) {
         if (error instanceof ApiError && error.code === 'CANCELLED') return;
-        if (!alive.current) return;
+        if (!alive.current || stepRef.current !== 'COUNT_READ') return;
         /*
          * 422 는 "네 말이 문장에 닿지 않았다" 다 — 아주 다른 말을 했거나,
          * 채점할 만한 말소리가 아예 없었거나.
@@ -463,12 +500,13 @@ export function ClassPlay() {
          * 아이 입장에서는 전부 "다시 해보자" 하나다. 문장을 모르는 경우는
          * 여기 오지 않는다 — 위에서 목록으로 미리 걸렀다.
          */
-        if (scorable && error instanceof ApiError && error.status === 422) {
+        if (error instanceof ApiError && error.status === 422) {
           setMisread((n) => n + 1);
           return; // COUNT_READ 에 그대로 머문다
         }
         // 서버가 안 되는 것은 아이 잘못이 아니다. 읽은 것은 읽은 것이다.
         setReadScore(null);
+        setReadFailed(true);
         setStep('COUNT_FEEDBACK');
       } finally {
         if (alive.current && abort.current === controller) setBusy(false);
@@ -478,6 +516,21 @@ export function ClassPlay() {
   );
 
   const recorder = useRecorder(subject.id === 'MATH' ? onReadAloud : onRecorded);
+
+  /**
+   * 읽기 화면을 떠난다. 진행 중인 것을 **실제로 끊고** 나간다.
+   *
+   * 예전에는 setStep 만 했다. 그러면 채점 요청과 녹음이 그대로 살아 있어서,
+   * 완료 화면에 가 있는 아이에게 수십 초 뒤 응답이 도착해 읽기 화면으로 도로
+   * 끌어냈다. 녹음 쪽은 서버 타이밍과 무관하게 더 확실히 터진다 — 30초 제한에
+   * 걸리면 녹음기가 스스로 채점을 부른다.
+   */
+  const leaveReading = useCallback(() => {
+    abort.current?.abort();
+    void recorder.stop();
+    stopSpeaking();
+    setStep('COMPLETE');
+  }, [recorder]);
 
   useEffect(() => {
     if (step !== 'COMPLETE') return;
@@ -489,6 +542,8 @@ export function ClassPlay() {
      */
     completeCategory('CLASS', {
       category: 'class',
+      // 동화가 무엇을 한 날인지 알아야 한다. 안 보내면 서버는 동시로 본다.
+      classSubject: subject.id,
       poemText:
         subject.id === 'MATH'
           ? `${quiz.fruit.name} ${countLabel(quiz.count)}를 세었어요.`
@@ -615,7 +670,13 @@ export function ClassPlay() {
       {step === 'FIND_PAGE_DONE' ||
       step === 'COUNT_PRAISE' ||
       (step === 'COUNT_READ' && justPicked) ? (
-        <Confetti />
+        /*
+          key 가 없으면 COUNT_READ → COUNT_PRAISE 처럼 조건이 참인 채로 이어지는
+          전이에서 리액트가 **같은 인스턴스를 그대로 둔다.** 조각은 useMemo 라
+          다시 안 만들어지고 낙하 애니메이션은 일회성이라 이미 끝나 있어서,
+          정작 축하할 칭찬 화면에서 한 조각도 안 떨어졌다.
+        */
+        <Confetti key={step} />
       ) : null}
 
       <div className="scene-body">
@@ -927,11 +988,11 @@ export function ClassPlay() {
                 말할 수는 없다.
               */}
               {misread >= 3 ? (
-                <BigButton tone="ghost" onClick={() => setStep('COMPLETE')}>
+                <BigButton tone="ghost" onClick={leaveReading}>
                   괜찮아, 다음으로
                 </BigButton>
               ) : micBlocked ? (
-                <BigButton tone="ghost" onClick={() => setStep('COMPLETE')}>
+                <BigButton tone="ghost" onClick={leaveReading}>
                   마이크 없이 넘어가기
                 </BigButton>
               ) : null}
@@ -991,6 +1052,7 @@ export function ClassPlay() {
                   icon="replay"
                   onClick={() => {
                     setReadScore(null);
+                    setReadFailed(false);
                     // 되묻기 횟수도 지운다. 안 지우면 아이가 아무 말도 안 한 상태에서
                     // "잘 못 들었어" 가 뜨고, 탈출 버튼도 3회가 아니라 그보다 일찍 열린다.
                     setMisread(0);
