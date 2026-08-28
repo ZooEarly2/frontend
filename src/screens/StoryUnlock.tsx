@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BigButton, Confetti, PartnerActor, SpeechBubble } from '@/components';
 import { Gem } from '@/components/Gem';
+import { GEM_MERGE, haptic, stopHaptics } from '@/audio/haptics';
 import { CATEGORY_GEM } from '@/scenarios/data';
 import { CATEGORY_ORDER } from '@/scenarios/types';
 import './screens.css';
@@ -43,26 +44,63 @@ const BOOK = '/scenes/story/fairytale_pre.png';
  * `spin` 은 넷이 서로 다른 각도로 날아들게 한다. 각도가 같으면 같은 물체가
  * 네 번 지나간 것으로 보인다.
  */
+/*
+ * `ex`/`ey` 는 **진행 축의 단위벡터**다. 스쿼시가 이 축을 따라간다 — 위에서
+ * 내리꽂힌 보석은 가로로 퍼지고, 옆에서 온 보석은 세로로 퍼져야 한다. 왼쪽에서
+ * 날아온 보석이 세로로 눌리면 물리가 어긋나 "박혔다" 가 안 읽힌다.
+ *
+ * `at` 은 출발 시각, `w` 는 **타격 무게**다. 스쿼시 깊이·링 크기·불꽃 세기·화면
+ * 킥이 전부 이 값 하나로 커진다.
+ */
 const GEM_SEATS = [
-  { fx: 0, fy: -132, lx: 0, ly: -38, spin: -26 }, // 등교 — 위
-  { fx: 168, fy: -8, lx: 50, ly: 0, spin: -9 }, // 수업 — 오른쪽
-  { fx: 0, fy: 132, lx: 0, ly: 38, spin: 9 }, // 급식 — 아래
-  { fx: -168, fy: -8, lx: -50, ly: 0, spin: 26 }, // 하교 — 왼쪽
+  { fx: 0, fy: -138, lx: 0, ly: -38, spin: -26, ex: 0, ey: 1, at: 150, w: 0.8 }, // 등교 — 위
+  { fx: 176, fy: -8, lx: 50, ly: 0, spin: -9, ex: 1, ey: 0, at: 340, w: 0.9 }, // 수업 — 오른쪽
+  { fx: 0, fy: 138, lx: 0, ly: 38, spin: 9, ex: 0, ey: 1, at: 530, w: 1.0 }, // 급식 — 아래
+  { fx: -176, fy: -8, lx: -50, ly: 0, spin: 26, ex: 1, ey: 0, at: 790, w: 1.2 }, // 하교 — 왼쪽
 ] as const;
 
-/** 첫 보석이 뜨는 시각과 다음 보석까지의 간격. 90ms 는 넷이 한 덩어리로 뭉쳐 보였다. */
-const GEM_FIRST = 160;
-const GEM_STEP = 120;
+/*
+ * 타격 간격이 190 / 190 / **260** 인 것은 실수가 아니다.
+ *
+ * 같은 간격 넷은 메트로놈이다. 셋을 또박또박 치고 **한 박자 쉰 뒤** 마지막을 크게
+ * 치면, 그 쉼표가 네 번째를 사건으로 만든다 — 그게 "넷을 다 모았다" 의 프레임이다.
+ *
+ * 예전에는 비행 420ms 에 간격 120ms 라 **항상 3.5개가 동시에 날았다.** 넷이 한
+ * 무리로 흘러서 "하나씩" 이 아예 안 보였다. 비행을 250ms 로 줄이니 동시에 움직이는
+ * 것이 1개 이하가 되어 비로소 하나·둘·셋·넷이 세어진다.
+ */
 
-/** 폭발 시각. 파편과 컨페티가 이 프레임에 같이 출발해야 "폭발이 만든 것" 으로 읽힌다. */
-const IMPACT = 1410;
+/*
+ * 아래 값들은 **CSS 키프레임과 반드시 같아야 한다.** 이 파일이 이미 한 번 겪은
+ * 사고다 — 타이머가 300ms 인데 키프레임이 900ms 였다. 그래서 각 시각을 숫자로
+ * 따로 적지 않고 **식으로 이어** 둔다. 한 곳을 옮기면 나머지가 따라온다.
+ */
+
+/** gem-slam 한 판의 길이와, 그 안에서 **박히는 프레임**이 오는 시각(46%) */
+const GEM_DUR = 250;
+const GEM_CONTACT = Math.round(GEM_DUR * 0.46); // 115
+
+/** 넷이 다 박힌 채 240ms 를 그대로 둔다. 이 화면이 축하하려는 문장이 거기서 읽힌다 */
+const MERGE_AT = 1280;
+const MERGE_DUR = 320;
+
+/**
+ * 폭발 시각. 파편과 컨페티가 이 프레임에 같이 출발해야 "폭발이 만든 것" 으로 읽힌다.
+ *
+ * gem-merge 의 56% 에서 넷이 가운데에 꽂히고, 거기서 **91ms 멈췄다가** 터진다.
+ * 그 정지가 없으면 빨려든 것과 터진 것이 한 동작으로 뭉쳐 "삼켜졌다" 가 안 읽힌다.
+ */
+const IMPACT = MERGE_AT + Math.round(MERGE_DUR * 0.56) + 91; // 1550
 
 /** 부엉이가 말을 거는 시각. 대사 낭독도 여기서 시작한다. */
-const OWL_AT = 1890;
+const OWL_AT = 2030;
 
 /** 버튼이 보이는 시각과, 눌리기까지 더 기다리는 시간. */
-const SHOW_AT = 2210;
+const SHOW_AT = 2350;
 const TAP_DELAY = 320;
+
+/** 첫 보석이 박히는 순간. 진동 4연타가 여기서 배열째 한 번 나간다 */
+const FIRST_SLAM = GEM_SEATS[0].at + GEM_CONTACT;
 
 /** 폭발이 흩뿌리는 파편 수 */
 const SHARD_COUNT = 14;
@@ -136,6 +174,31 @@ export function StoryUnlock({ onGo, onClose }: { onGo: () => void; onClose: () =
     };
   }, [armed]);
 
+  /**
+   * 손끝으로도 네 번 친다.
+   *
+   * **타이머는 하나다.** 착지마다 부르면 새 vibrate() 가 진행 중이던 패턴을 무조건
+   * 끊어서(W3C Vibration API) 넷이 서로를 지운다. 게다가 느린 기기에서는 JS 타이머가
+   * CSS 타임라인과 어긋나 진동과 화면이 따로 논다. 배열 하나를 넘기면 운영체제가
+   * 리듬을 돌려주므로 둘 다 생기지 않는다.
+   *
+   * 안 되는 기기에서는 haptic() 이 조용히 아무 일도 안 한다 — 아이폰·아이패드는
+   * 애플이 이 API 를 구현하지 않아 **영원히** 안 된다. 그래서 이 연출은 진동이
+   * 없어도 화면만으로 타격이 다 읽혀야 한다(스쿼시·히트스톱·링·불꽃·화면 킥).
+   *
+   * 움직임을 줄여 달라고 한 기기에는 아예 쏘지 않는다. 그 판단은 haptics.ts 가
+   * 이미 하고 있고(소리 스위치도 같이 따른다), 여기서는 떠날 때 끊기만 한다.
+   */
+  useEffect(() => {
+    if (!armed) return undefined;
+    const buzz = window.setTimeout(() => haptic(GEM_MERGE), FIRST_SLAM);
+    return () => {
+      window.clearTimeout(buzz);
+      // 화면을 떠나는데 손이 계속 울리면 안 된다
+      stopHaptics();
+    };
+  }, [armed]);
+
   // 보이고 나서 조금 뒤에 눌린다. 반투명한 버튼이 눌리면 아이는 자기가 무엇을
   // 눌렀는지 모른 채 축하가 사라진 화면을 보게 된다.
   useEffect(() => {
@@ -147,8 +210,17 @@ export function StoryUnlock({ onGo, onClose }: { onGo: () => void; onClose: () =
   if (!armed) return null;
 
   return (
-    <div className="unlock" role="status" aria-label="보석을 모두 모았어요">
-      <div className="unlock__stage">
+    /*
+      장식 수십 개가 든 상자를 라이브 영역으로 두면, 스크린리더는 마운트되는 즉시
+      이름만 읽고 정작 **결말은 못 말한다.** 상자는 통째로 감추고, 결과 한 줄만
+      따로 두어 버튼이 뜰 때 채운다.
+    */
+    <div className="unlock">
+      <p className="unlock__sr" role="status">
+        {shown ? '보석 네 개를 다 모아서 오늘의 동화책이 열렸어요.' : ''}
+      </p>
+
+      <div className="unlock__stage" aria-hidden>
         {/* 뒤에서 도는 빛살과 빛무리. 무대 안에 둬야 폭발 지점과 중심이 맞는다 */}
         <span className="unlock__rays" aria-hidden />
         <span className="unlock__glow" aria-hidden />
@@ -157,8 +229,36 @@ export function StoryUnlock({ onGo, onClose }: { onGo: () => void; onClose: () =
         <div className="unlock__shake">
           <span className="unlock__core" aria-hidden />
 
-          {/* 흩어져 있던 보석 넷이 마름모로 앉았다가 함께 빨려든다 */}
-          <div className="unlock__gems" aria-hidden>
+          {/*
+            박히는 자리의 충격파. **보석보다 먼저 그린다** — 뒤에 깔려야 보석이
+            링을 뚫고 나온 것으로 읽힌다. 그리고 보석과 형제로 두는 이유는,
+            보석이 스쿼시로 일그러질 때 자식이면 링까지 같이 찌그러지기 때문이다.
+          */}
+          <div className="unlock__slams">
+            {CATEGORY_ORDER.map((category, index) => {
+              const seat = GEM_SEATS[index];
+              return (
+                <span
+                  key={category}
+                  className="unlock__slam"
+                  style={
+                    {
+                      '--lx': `${seat.lx}px`,
+                      '--ly': `${seat.ly}px`,
+                      '--w': `${seat.w}`,
+                      '--hit': `${seat.at + GEM_CONTACT}ms`,
+                      // 링 색은 base 가 아니라 deep 이다. 크림 배경 위에서
+                      // 파스텔 base 는 형체가 사라진다
+                      '--slam': CATEGORY_GEM[category].deep,
+                    } as React.CSSProperties
+                  }
+                />
+              );
+            })}
+          </div>
+
+          {/* 하나씩 내리꽂혀 박히고, 넷이 다 박히면 그때 가운데로 빨려든다 */}
+          <div className="unlock__gems">
             {CATEGORY_ORDER.map((category, index) => {
               const seat = GEM_SEATS[index];
               return (
@@ -172,7 +272,10 @@ export function StoryUnlock({ onGo, onClose }: { onGo: () => void; onClose: () =
                       '--lx': `${seat.lx}px`,
                       '--ly': `${seat.ly}px`,
                       '--spin': `${seat.spin}deg`,
-                      '--delay': `${GEM_FIRST + index * GEM_STEP}ms`,
+                      '--ex': `${seat.ex}`,
+                      '--ey': `${seat.ey}`,
+                      '--w': `${seat.w}`,
+                      '--delay': `${seat.at}ms`,
                     } as React.CSSProperties
                   }
                 >

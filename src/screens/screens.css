@@ -367,19 +367,6 @@
 }
 
 /*
- * 흔들리는 것과 안 흔들리는 것을 가른다. 배경 빛까지 흔들면 카메라가
- * 흔들린 게 아니라 화면 전체가 밀린 것으로 보인다.
- */
-.unlock__shake {
-  grid-area: 1 / 1;
-  display: grid;
-  place-items: center;
-  /* 같은 이유 — 안에 320px 발광이 들어 있다 */
-  place-content: center;
-  animation: unlock-shake 380ms cubic-bezier(0.33, 0, 0.2, 1) 1410ms both;
-}
-
-/*
  * 충격의 감쇠는 선형이 아니다. 게임 쪽에서 trauma 제곱으로 부르는 것 —
  * 처음이 크고 뒤로 갈수록 급히 잦아든다. 6px / 1.2도에서 시작한다.
  */
@@ -418,119 +405,7 @@
   height: 0;
 }
 
-/*
- * 자리는 위·오른쪽·아래·왼쪽. 한 줄로 세우지 않는다 — 마름모로 앉아
- * 가운데를 비운다. 그 빈 자리가 빛이 차오르는 곳이고, 그래서 다음에
- * 넷이 빨려들 자리가 화면에 미리 보인다.
- */
-.unlock__gem {
-  position: absolute;
-  display: block;
-  animation:
-    gem-fly 420ms var(--delay) both,
-    gem-merge 300ms cubic-bezier(0.3, 0, 0.8, 0.15) 1170ms forwards;
-}
-
-/*
- * 뒤로 한 번 뺐다가(anticipation) 돌진해서 살짝 지나쳤다 안착한다.
- * 90ms/950ms = 9.5% 였던 간격을 120ms/420ms = 28.6% 로 벌렸다.
- * 25~33% 가 "겹치면서도 하나·둘·셋·넷으로 세어지는" 대역이다.
- */
-@keyframes gem-fly {
-  0% {
-    transform: translate(var(--fx), var(--fy)) rotate(var(--spin)) scale(0.72);
-    opacity: 0;
-    animation-timing-function: cubic-bezier(0.33, 0, 0.67, 0.35);
-  }
-  22% {
-    transform: translate(calc(var(--fx) * 1.14), calc(var(--fy) * 1.14)) rotate(var(--spin))
-      scale(0.9);
-    opacity: 1;
-    animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
-  }
-  71% {
-    transform: translate(calc(var(--lx) * 1.1), calc(var(--ly) * 1.1)) rotate(0deg) scale(1.16);
-    opacity: 1;
-    animation-timing-function: cubic-bezier(0.34, 1.3, 0.64, 1);
-  }
-  100% {
-    transform: translate(var(--lx), var(--ly)) rotate(0deg) scale(1);
-    opacity: 1;
-  }
-}
-
-/*
- * 넷이 다 앉은 뒤 230ms 동안 아무것도 움직이지 않는다.
- * 그 다음 동시에 가운데로 빨려든다 — 모이는 동안은 넷을 세어야 하지만,
- * 합쳐지는 것은 사건 하나여야 해서 여기만 시차가 0이다.
- * 57% 에 꽂히고 80% 까지 멈춰 있다(히트스톱 69ms). 그 정지가 다음 프레임의
- * 폭발을 "터졌다" 로 만든다 — 게임 쪽에서 40~80ms 로 수렴한 값이다.
- */
-@keyframes gem-merge {
-  0% {
-    transform: translate(var(--lx), var(--ly)) scale(1);
-    opacity: 1;
-  }
-  57% {
-    transform: translate(0, 0) scale(0.86);
-    opacity: 1;
-    animation-timing-function: steps(1, end);
-  }
-  80% {
-    transform: translate(0, 0) scale(0.86);
-    opacity: 1;
-    animation-timing-function: cubic-bezier(0.3, 0, 0.8, 0.15);
-  }
-  100% {
-    transform: translate(0, 0) scale(0.1);
-    opacity: 0;
-  }
-}
-
-/* 마름모 한가운데가 달아오른다 — 넷이 빨려들 자리를 미리 알려준다 */
-.unlock__core {
-  grid-area: 1 / 1;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(255, 226, 150, 0) 68%);
-  opacity: 0;
-  transform: scale(0.4);
-  animation: core-hot 630ms cubic-bezier(0.3, 0, 0.8, 0.15) 780ms forwards;
-  pointer-events: none;
-}
-
-@keyframes core-hot {
-  to {
-    opacity: 0.95;
-    transform: scale(1.35);
-  }
-}
-
 /* ── 터진다 ─────────────────────────────────────── */
-
-/*
- * 전면 흰 섬광을 쓰지 않는다. 크림색 배경(상대휘도 약 0.93) 위에 흰색을
- * 0.72 로 덮어도 휘도 변화가 0.05 라 사람 눈에 거의 안 보이는데,
- * 430×930 짜리 레이어는 저가 안드로이드(DPR 3)에서 14MB 를 차지한다.
- * 폭발 지점에 모인 320px 짜리 국소 발광이 실제로 "터졌다" 로 읽히고
- * 비용은 10분의 1이다.
- */
-.unlock__bloom {
-  grid-area: 1 / 1;
-  width: 320px;
-  height: 320px;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 1) 0 18%,
-    rgba(255, 238, 190, 0.85) 45%,
-    rgba(255, 238, 190, 0) 72%
-  );
-  opacity: 0;
-  animation: bloom 180ms linear 1410ms forwards;
-  pointer-events: none;
-}
 
 /* 한 번만 켜졌다 꺼진다. 1초에 세 번을 넘는 깜빡임은 발작을 유발할 수 있다 */
 @keyframes bloom {
@@ -546,29 +421,6 @@
     opacity: 0;
     transform: scale(1.6);
   }
-}
-
-/*
- * 충격파 두 겹. `::after` 로 만들지 않는다 — 가상요소는 부모의 transform 과
- * opacity 를 곱하기 때문에, 두 번째 파동이 첫 파동에 딸려 나가며 화면 밖으로
- * 튀는 거대한 호가 된다. 형제로 두면 각자 중심에서 나간다.
- */
-.unlock__shock {
-  grid-area: 1 / 1;
-  width: 200px;
-  height: 200px;
-  border-radius: 50%;
-  border: 3px solid rgba(255, 211, 110, 0.9);
-  opacity: 0;
-  animation: shock 480ms cubic-bezier(0.06, 0.86, 0.16, 1) 1410ms forwards;
-  pointer-events: none;
-}
-
-.unlock__shock--late {
-  border-color: rgba(255, 255, 255, 0.85);
-  border-width: 2px;
-  animation-delay: 1500ms;
-  animation-duration: 400ms;
 }
 
 /*
@@ -643,42 +495,12 @@
 
 /* ── 폭발에서 튀어나오는 동화책 ─────────────────── */
 
-/*
- * 동화 표지 그림은 투명 배경이 아니라 종이색으로 구워져 있다(투명하게 두면
- * 예전에 검게 뜨는 문제가 있었다). 그대로 얹으면 축하 화면의 따뜻한 바탕
- * 위에 네모가 떠 보이므로, 아예 액자에 넣어 의도한 모양으로 만든다.
- *
- * isolation 을 명시한다 — 착지 그림자를 z-index: -1 로 뒤에 두는데,
- * 스태킹 컨텍스트가 없으면 그림자가 배경 빛무리 아래로 빠진다.
- */
-.unlock__bookframe {
-  grid-area: 1 / 1;
-  position: relative;
-  isolation: isolate;
-  animation: book-out 520ms 1420ms both;
-}
-
 .unlock__bookframe img {
   display: block;
   height: 190px;
   width: auto;
   border-radius: var(--r-md);
   border: 5px solid var(--surface);
-}
-
-/* 착지 그림자는 책보다 늦게 짙어진다 — 무게가 늦게 실리는 것이 물리다 */
-.unlock__bookframe::after {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  left: 8%;
-  right: 8%;
-  bottom: -10px;
-  height: 18px;
-  border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(160, 120, 70, 0.4) 0%, rgba(160, 120, 70, 0) 70%);
-  opacity: 0;
-  animation: shadow-drop 300ms ease 1660ms forwards;
 }
 
 @keyframes shadow-drop {
@@ -713,22 +535,6 @@
 }
 
 /* ── 부엉이와 버튼 ──────────────────────────────── */
-
-/*
- * 책이 앉고 230ms 뒤에 말을 건다. 그 전에 화면 아래에서 뭔가 튀어오르면
- * 아이는 "무엇을 받았는지" 대신 움직이는 쪽을 본다.
- */
-.unlock__talk {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  width: 100%;
-  /* 여기도 줄어들면 부엉이가 잘린다 */
-  flex: 0 0 auto;
-  animation: unlock-rise 320ms cubic-bezier(0.34, 1.1, 0.64, 1) 1890ms both;
-}
 
 @keyframes unlock-rise {
   from {
@@ -779,13 +585,514 @@
  * 그래서 여기서 하나하나 되돌린다: 움직임은 끄되 보석 넷과 동화책은
  * 제자리에 또렷이 남기고, 부드럽게 떠오르기만 한다.
  */
+/* ============================================================
+ * screens.css — .unlock__* 교체분
+ * [교체] 표시는 같은 이름의 기존 규칙을 지우고 이것으로 바꾼다.
+ * [추가] 는 새로 붙인다. 여기 없는 .unlock__* 규칙은 그대로 둔다.
+ * ============================================================ */
+
+/* ── [교체] 흔들림: 약타 4회 + 폭발 강타 1회 ─────────────────
+ *
+ * 등급을 나눈다. 보석 하나가 박히는 것과 넷이 터지는 것이 같은 세기로
+ * 흔들리면 마지막이 커 보이지 않는다. 착지는 2.2~3.4px(약공격),
+ * 폭발만 6px(강공격).
+ *
+ * 두 애니메이션이 같은 transform 을 건드리므로 **순서와 fill 이 전부**다.
+ * unlock-shake 를 뒤에 두고 `both` → `forwards` 로 바꿨다. `both` 는
+ * 0ms 부터 뒤로 채워서 앞의 unlock-taps 를 통째로 덮어버린다. 0% 값이
+ * translate(0,0) 이라 뒤로 채울 것도 없다.
+ */
+.unlock__shake {
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+  place-content: center;
+  animation:
+    unlock-taps 1090ms linear 150ms both,
+    unlock-shake 380ms cubic-bezier(0.33, 0, 0.2, 1) 1550ms forwards;
+}
+
+/* ── [추가] 착지 4연타의 약한 킥 ─────────────────────────────
+ *
+ * 킥 방향이 보석이 온 방향을 따른다 — 위에서 떨어졌으면 화면이 아래로
+ * 밀리고, 오른쪽에서 파고들었으면 왼쪽으로 밀린다. 방향이 같으면 네 번이
+ * 같은 사건으로 뭉친다.
+ *
+ * 150ms 에 시작해 1090ms 동안 돈다. % 는 착지 시각(265/455/645/905ms)을
+ * 이 구간으로 환산한 값이다 — 이 표를 고치면 --delay 도 같이 고쳐야 한다.
+ * 회전은 넣지 않는다. 약타에 rotate 를 섞으면 카메라가 아니라 무대가
+ * 기울어진 것으로 보인다.
+ */
+@keyframes unlock-taps {
+  0%,
+  10.5% {
+    transform: translate(0, 0);
+  }
+  /* ① 위에서 왔다 → 아래로 밀린다 */
+  12.8% {
+    transform: translate(0, 2.2px);
+  }
+  16.2% {
+    transform: translate(0, -0.9px);
+  }
+  18.8%,
+  28% {
+    transform: translate(0, 0);
+  }
+  /* ② 오른쪽에서 왔다 → 왼쪽으로 */
+  30.3% {
+    transform: translate(-2.4px, 0);
+  }
+  33.7% {
+    transform: translate(1px, 0);
+  }
+  36.3%,
+  45.4% {
+    transform: translate(0, 0);
+  }
+  /* ③ 아래에서 왔다 → 위로 */
+  47.7% {
+    transform: translate(0, -2.7px);
+  }
+  51.1% {
+    transform: translate(0, 1.1px);
+  }
+  53.7%,
+  69.3% {
+    transform: translate(0, 0);
+  }
+  /* ④ 왼쪽에서 왔다 → 오른쪽으로. 가장 세다 */
+  71.9% {
+    transform: translate(3.4px, 0);
+  }
+  75.3% {
+    transform: translate(-1.5px, 0);
+  }
+  78.4% {
+    transform: translate(0.6px, 0);
+  }
+  81.5%,
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+/* ── [추가] 박히는 자리의 충격파 ─────────────────────────────
+ *
+ * 껍데기(.unlock__slam)는 **정적 translate 만** 갖는다. 여기에 애니메이션을
+ * 걸면 두 가상요소가 부모의 scale 에 곱해져 링이 같이 일그러진다.
+ * 껍데기는 자리만 잡고, 움직이는 것은 ::before / ::after 뿐이다.
+ *
+ * 보석 span 의 ::after 로 만들지 않은 이유도 같다 — 보석은 이 순간
+ * 1.26 × 0.78 로 눌려 있어서, 딸려 붙은 링이 타원으로 찌그러진다.
+ */
+.unlock__slams {
+  grid-area: 1 / 1;
+  position: relative;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.unlock__slam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  /* 정적. 절대 애니메이트하지 않는다 */
+  transform: translate(var(--lx), var(--ly));
+  pointer-events: none;
+}
+
+/*
+ * 충격파 링.
+ *
+ * box-shadow 는 **값을 고정하고 한 번만 페인트**시킨다. 키프레임에서
+ * 흔들면 매 프레임 블러를 다시 그려 저사양 태블릿이 그 자리에서 떨어진다.
+ * 이미 그려진 레이어를 transform 으로 확대하면 글로우도 같이 커진다.
+ * border-width 도 같은 이유로 고정 — 한 키프레임에 비합성 속성이 섞이면
+ * 그 애니메이션 전체가 메인 스레드로 내려간다.
+ *
+ * 최대 지름 = 54px × (1.9 + 0.55 × --w) → 126~138px. 10° 시야의 25%
+ * (430px 무대 기준 지름 165px) 안이라 광과민성 면적 면제 구간이다.
+ */
+.unlock__slam::before {
+  content: '';
+  position: absolute;
+  top: -27px;
+  left: -27px;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 2.5px solid var(--slam, rgba(255, 211, 110, 0.9));
+  box-shadow: 0 0 10px 1px rgba(255, 255, 255, 0.5);
+  opacity: 0;
+  transform: scale(0.34);
+  will-change: transform, opacity;
+  animation: slam-ring 300ms cubic-bezier(0.05, 0.7, 0.1, 1) var(--hit) forwards;
+}
+
+@keyframes slam-ring {
+  0% {
+    opacity: calc(0.5 + 0.34 * var(--w));
+    transform: scale(0.34);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(calc(1.9 + 0.55 * var(--w)));
+  }
+}
+
+/*
+ * 부딪힌 자리의 흰 불꽃. 여기가 "쾅" 이다.
+ *
+ * 지름 최대 60px, 지속 170ms. 다음 불꽃이 190ms 뒤에 뜨므로 **둘이 절대
+ * 겹치지 않는다** — 동시 발광 면적이 합산되지 않아야 면제 계산이 성립한다.
+ * 전체 화면을 밝히는 층(.unlock__glow / .unlock__rays)에는 이 펄스를
+ * 절대 얹지 않는다. 파스텔에서 '번쩍'을 만드는 것은 채도가 아니라 명도다.
+ */
+.unlock__slam::after {
+  content: '';
+  position: absolute;
+  top: -28px;
+  left: -28px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.95) 0 20%,
+    rgba(255, 242, 210, 0.55) 42%,
+    rgba(255, 242, 210, 0) 72%
+  );
+  opacity: 0;
+  transform: scale(0.45);
+  will-change: transform, opacity;
+  animation: slam-spark 170ms linear var(--hit) forwards;
+}
+
+@keyframes slam-spark {
+  0% {
+    opacity: calc(0.46 + 0.36 * var(--w));
+    transform: scale(0.45);
+  }
+  32% {
+    opacity: calc(0.34 + 0.28 * var(--w));
+    transform: scale(calc(0.72 + 0.3 * var(--w)));
+  }
+  100% {
+    opacity: 0;
+    transform: scale(calc(0.95 + 0.35 * var(--w)));
+  }
+}
+
+/* ── [교체] 보석: 날아와 앉는다 → 내리꽂혀 박힌다 ────────────
+ *
+ * 스쿼시 배율을 여기서 계산해 둔다. `--ex`/`--ey` 는 진행 축의 단위
+ * 벡터(위·아래에서 오면 0/1, 좌·우에서 오면 1/0)이고 `--w` 는 타격 무게다.
+ * 둘 다 인라인 style 로 **한 번만** 세팅되고 키프레임 안에서는 변하지
+ * 않는다 — 커스텀 속성은 값이 바뀌면 컴포지터 속성이라도 반드시 페인트를
+ * 유발하므로, 프레임마다 바뀌는 변수를 만들면 안 된다.
+ *
+ * 부호 규칙: 스쿼시는 진행 축을 납작하게 눌러 수직 축으로 퍼뜨리고,
+ * 되튐은 그 반대, 잔진동은 다시 스쿼시와 같은 부호로 아주 작게.
+ * 위에서 온 보석: 1.26 × 0.78 → 0.95 × 1.07 → 1.02 × 0.984 → 1 × 1.
+ */
+.unlock__gem {
+  position: absolute;
+  display: block;
+  /* 인라인이 없을 때의 기본값 — 세로 낙하, 표준 무게 */
+  --ex: 0;
+  --ey: 1;
+  --w: 1;
+  /* 박히는 프레임: 진행 축으로 납작 */
+  --sq-x: calc(1 + 0.26 * var(--w) * var(--ey) - 0.22 * var(--w) * var(--ex));
+  --sq-y: calc(1 + 0.26 * var(--w) * var(--ex) - 0.22 * var(--w) * var(--ey));
+  /* 접근 프레임: 진행 축으로 길쭉 */
+  --st-x: calc(1 + 0.15 * var(--ex) - 0.11 * var(--ey));
+  --st-y: calc(1 + 0.15 * var(--ey) - 0.11 * var(--ex));
+  /* 되튐: 스쿼시의 반대 */
+  --rc-x: calc(1 + 0.07 * var(--ex) - 0.05 * var(--ey));
+  --rc-y: calc(1 + 0.07 * var(--ey) - 0.05 * var(--ex));
+  /* 잔진동: 스쿼시와 같은 부호, 8분의 1 크기 */
+  --sl-x: calc(1 + 0.02 * var(--ey) - 0.016 * var(--ex));
+  --sl-y: calc(1 + 0.02 * var(--ex) - 0.016 * var(--ey));
+  animation:
+    gem-slam 250ms var(--delay) both,
+    gem-merge 320ms cubic-bezier(0.3, 0, 0.8, 0.15) 1280ms forwards;
+}
+
+/*
+ * 한 번의 착지 = 다섯 개의 사건 (250ms).
+ *
+ * 0→38% 돌진: 0→20% 구간이 launch 의 22% 만 지나고 20→38% 구간이 나머지
+ * 대부분을 지나간다. 가속이다 — 여기서 등속으로 오면 '흘러왔다'가 된다.
+ * 회전은 38% 에 이미 0deg 다. 눌리는 순간에도 돌고 있으면 무엇이 부딪혔는지
+ * 안 읽힌다.
+ *
+ * 46% 는 자리보다 12% **안쪽**이다. 정확히 자리에서 멈추면 '도착'이고,
+ * 파묻혔다 밀려나야 '충돌'이다. 76% 에서 5% 밖으로 튀어나온다.
+ *
+ * 46→58% 는 값이 완전히 같다 — 히트스톱 30ms. 이 정지가 이 연출에서
+ * 가장 중요한 12% 다.
+ *
+ * brightness 는 44px 보석 몸통에만 걸린다(면적 ≈ 10° 시야 25% 기준의 9%).
+ * filter 를 별도 애니메이션으로 떼지 않고 같은 키프레임에 태운 이유는,
+ * 레이어가 생겼다 없어지는 시점을 하나로 묶기 위해서다.
+ */
+@keyframes gem-slam {
+  0% {
+    opacity: 0;
+    transform: translate(var(--fx), var(--fy)) rotate(var(--spin)) scale(0.7);
+    filter: brightness(1);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.85, 0.4);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(calc(var(--fx) * 0.78), calc(var(--fy) * 0.78))
+      rotate(calc(var(--spin) * 0.55)) scale(0.86);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.35);
+  }
+  38% {
+    opacity: 1;
+    transform: translate(calc(var(--lx) * 1.12), calc(var(--ly) * 1.12)) rotate(0deg)
+      scale(var(--st-x), var(--st-y));
+    filter: brightness(1.02);
+    animation-timing-function: linear;
+  }
+  46% {
+    opacity: 1;
+    transform: translate(calc(var(--lx) * 0.88), calc(var(--ly) * 0.88)) rotate(0deg)
+      scale(var(--sq-x), var(--sq-y));
+    filter: brightness(1.18);
+    animation-timing-function: linear;
+  }
+  58% {
+    opacity: 1;
+    transform: translate(calc(var(--lx) * 0.88), calc(var(--ly) * 0.88)) rotate(0deg)
+      scale(var(--sq-x), var(--sq-y));
+    filter: brightness(1.09);
+    animation-timing-function: cubic-bezier(0.18, 0.9, 0.32, 1.25);
+  }
+  76% {
+    transform: translate(calc(var(--lx) * 1.05), calc(var(--ly) * 1.05)) rotate(0deg)
+      scale(var(--rc-x), var(--rc-y));
+    filter: brightness(1);
+    animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
+  }
+  90% {
+    transform: translate(calc(var(--lx) * 0.986), calc(var(--ly) * 0.986)) rotate(0deg)
+      scale(var(--sl-x), var(--sl-y));
+  }
+  100% {
+    opacity: 1;
+    transform: translate(var(--lx), var(--ly)) rotate(0deg) scale(1);
+    filter: brightness(1);
+  }
+}
+
+/*
+ * [교체] 넷이 다 박히고 240ms 뒤. 여기만 시차가 0이다 —
+ * 모이는 동안은 넷을 세어야 하지만 합쳐지는 것은 사건 하나다.
+ *
+ * 14% 의 뒤로 빼기(anticipation)를 새로 넣었다. 45ms 짜리 미세한
+ * 되감기인데, 이게 있어야 '빨려든다'가 '사라진다'로 안 읽힌다.
+ *
+ * 56% 에 가운데 도착(1459ms), 84% 까지 정지 — **히트스톱 90ms.**
+ * 예전 69ms 는 지각 하한(약 67ms)에 걸쳐 있어 멈춘 것이 안 보였다.
+ */
+@keyframes gem-merge {
+  0% {
+    transform: translate(var(--lx), var(--ly)) scale(1);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.3, 0, 0.7, 0.4);
+  }
+  14% {
+    transform: translate(calc(var(--lx) * 1.16), calc(var(--ly) * 1.16)) scale(0.96);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.55, 0, 0.85, 0.35);
+  }
+  56% {
+    transform: translate(0, 0) scale(0.84);
+    opacity: 1;
+  }
+  84% {
+    transform: translate(0, 0) scale(0.84);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.3, 0, 0.8, 0.15);
+  }
+  100% {
+    transform: translate(0, 0) scale(0.1);
+    opacity: 0;
+  }
+}
+
+/* ── [교체] 가운데가 보석 하나마다 자란다 ────────────────────
+ *
+ * core-hot 은 780ms 부터 혼자 부풀어 착지와 아무 관계가 없었다.
+ * 크기와 밝기를 **두 애니메이션으로 쪼갠다** — 서로 다른 속성이라
+ * 충돌하지 않고, 각자 다른 규칙을 따를 수 있기 때문이다.
+ *
+ *  core-punch(크기): 착지마다 튄다. 그리고 매번 **바닥값이 높아진다**
+ *    (0.34 → 0.36 → 0.39 → 0.43 → 0.50). 보석이 하나 박힐 때마다
+ *    가운데가 조금씩 자라 있는다.
+ *  core-lit(밝기): 오르기만 한다. 내려오는 프레임이 하나도 없으므로
+ *    깜빡임 횟수가 정의상 0이다 — 5.3Hz 로 네 번 치면서도 광과민성
+ *    기준에 걸리지 않는 것이 여기 있다. **크기는 튀어도 되고 밝기는
+ *    안 된다.**
+ *
+ * % 는 250→1550ms(1300ms) 구간 환산이다.
+ */
+.unlock__core {
+  grid-area: 1 / 1;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(255, 226, 150, 0) 68%);
+  opacity: 0;
+  transform: scale(0.34);
+  animation:
+    core-lit 1300ms linear 250ms forwards,
+    core-punch 1300ms cubic-bezier(0.3, 0, 0.8, 0.15) 250ms forwards;
+  pointer-events: none;
+}
+
+@keyframes core-punch {
+  0%,
+  1.2% {
+    transform: scale(0.34);
+  }
+  4% {
+    transform: scale(0.44);
+  }
+  9%,
+  15.8% {
+    transform: scale(0.36);
+  }
+  18.6% {
+    transform: scale(0.48);
+  }
+  23%,
+  30.5% {
+    transform: scale(0.39);
+  }
+  33.3% {
+    transform: scale(0.53);
+  }
+  38%,
+  50.5% {
+    transform: scale(0.43);
+  }
+  53.7% {
+    transform: scale(0.64);
+  }
+  59% {
+    transform: scale(0.5);
+  }
+  79.2% {
+    transform: scale(0.54);
+  }
+  100% {
+    transform: scale(1.35);
+  }
+}
+
+@keyframes core-lit {
+  0%,
+  1.2% {
+    opacity: 0;
+  }
+  4%,
+  15.8% {
+    opacity: 0.3;
+  }
+  18.6%,
+  30.5% {
+    opacity: 0.5;
+  }
+  33.3%,
+  50.5% {
+    opacity: 0.68;
+  }
+  53.7% {
+    opacity: 0.86;
+  }
+  100% {
+    opacity: 0.95;
+  }
+}
+
+/* ── [교체] 폭발 지연만 1410 → 1550 ──────────────────────────
+ * 키프레임(bloom / shock / book-out / shadow-drop / unlock-rise)은
+ * 손대지 않는다. 지연 숫자만 옮긴다.
+ */
+.unlock__bloom {
+  animation: bloom 180ms linear 1550ms forwards;
+}
+
+.unlock__shock {
+  animation: shock 480ms cubic-bezier(0.06, 0.86, 0.16, 1) 1550ms forwards;
+}
+
+.unlock__shock--late {
+  animation-delay: 1640ms;
+}
+
+.unlock__bookframe {
+  animation: book-out 520ms 1560ms both;
+}
+
+.unlock__bookframe::after {
+  animation: shadow-drop 300ms ease 1800ms forwards;
+}
+
+.unlock__talk {
+  animation: unlock-rise 320ms cubic-bezier(0.34, 1.1, 0.64, 1) 2030ms both;
+}
+
+/* ── [추가] 눈에 안 보이는 결과 한 줄 ────────────────────────
+ * 폭발·파편·링·보석은 텍스트 등가물이 없는 순수 장식이라 트리에서 뺐다.
+ * 대신 결말만 여기서 말한다. 노드는 첫 렌더부터 있고 **텍스트만** 나중에
+ * 채운다 — 노드를 통째로 나중에 넣으면 스크린리더가 놓친다.
+ */
+.unlock__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── [교체] 움직임을 줄여 달라고 한 기기 ─────────────────────
+ *
+ * 예전 블록은 축하를 '지우기' 만 했다 — 사용자가 원한 '하나씩 박히는'
+ * 리듬이 통째로 사라졌다. 지워야 할 것은 **사방에서 날아오는 대이동과
+ * 확대**뿐이다. 순차성은 벡터가 아니라 리듬이라 전정기관을 건드리지
+ * 않는다. 그래서 제거가 아니라 **교체**한다.
+ *
+ *   제자리에서 하나씩 켜진다(150/340/530/790) → 넷이 같이 남는다(240ms)
+ *   → 넷이 같이 사라지고 가운데 빛이 켜진다(= 합쳐졌다) → 잔광(= 터졌다)
+ *   → 동화책 → 부엉이 → 버튼
+ *
+ * 총 길이는 일반 연출과 같다. JS 타이머(OWL_AT 2030 / SHOW_AT 2350)가
+ * 이 화면의 진짜 시계이고, 여기서 시각을 어긋내면 부엉이가 나타나기 전에
+ * 목소리부터 나온다.
+ *
+ * tokens.css 의 전역 킬스위치가 모든 애니메이션을 0.001ms 로 만들므로
+ * 여기 값은 전부 !important 여야 하고, 클래스 선택자(0,1,0)가 `*`(0,0,0)
+ * 를 이기므로 실제로 살아남는다.
+ */
 @media (prefers-reduced-motion: reduce) {
+  /* 이동·회전·파편만 지운다 */
   .unlock__rays,
-  .unlock__glow,
-  .unlock__core,
-  .unlock__bloom,
   .unlock__shock,
   .unlock__shards,
+  .unlock__slams,
   .unlock .confetti {
     display: none !important;
   }
@@ -794,14 +1101,35 @@
     animation: none !important;
   }
 
+  /* 빛무리는 남긴다 — opacity 만 바뀌므로 움직임이 아니다 */
+  .unlock__glow {
+    animation: unlock-fade-in 400ms ease 120ms forwards !important;
+  }
+
+  /* 날아오지 않는다. 앉을 자리에서 하나씩 켜지고, 넷이 같이 걷힌다 */
   .unlock__gem {
-    /* 날아오지 않는다. 앉을 자리에 그냥 나타난다 */
     transform: translate(var(--lx), var(--ly));
-    animation: rm-appear 300ms ease var(--delay) both !important;
+    filter: none !important;
+    animation:
+      rm-set 260ms ease var(--delay) both,
+      rm-gone 260ms ease 1290ms forwards !important;
+  }
+
+  /* 보석이 걷히는 자리에서 켜진다 = "합쳐졌다" 의 시각적 등가물 */
+  .unlock__core {
+    transform: scale(1.15);
+    animation: rm-soft 320ms ease 1300ms both !important;
+  }
+
+  /* 지우지 않고 정지된 잔광으로 바꾼다 = "터졌다" 의 시각적 등가물.
+     페이드 인만 하고 내려오지 않으므로 섬광 쌍이 성립하지 않는다 */
+  .unlock__bloom {
+    transform: scale(0.92);
+    animation: rm-bloom 360ms ease 1450ms both !important;
   }
 
   .unlock__bookframe {
-    animation: rm-appear 300ms ease 900ms both !important;
+    animation: rm-set 300ms ease 1620ms both !important;
   }
 
   .unlock__bookframe::after {
@@ -810,12 +1138,42 @@
   }
 
   .unlock__talk {
-    animation: rm-appear 300ms ease 1200ms both !important;
+    animation: rm-set 300ms ease 2030ms both !important;
   }
 
-  @keyframes rm-appear {
+  @keyframes rm-set {
     from {
       opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes rm-gone {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes rm-soft {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 0.7;
+    }
+  }
+
+  @keyframes rm-bloom {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 0.42;
     }
   }
 }
