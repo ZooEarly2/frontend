@@ -1,4 +1,11 @@
-import type { CategoryId, ClassPoem, ClassScenario, DialogueScenario } from './types';
+import type {
+  CategoryId,
+  ClassPoem,
+  ClassScenario,
+  ClassSubject,
+  DialogueScenario,
+  MathFruit,
+} from './types';
 
 /**
  * 시나리오 콘텐츠.
@@ -108,28 +115,62 @@ export const DISMISSAL: DialogueScenario = {
 export const CLASS: ClassScenario = {
   id: 'CLASS',
   title: '수업시간',
-  tagline: '동시를 같이 읽어요',
+  tagline: '국어도 하고 수학도 해요',
   scenes: {
     // 수업시간 그림만 webp 다. 하늘 계조가 있는 그림이라 PNG 팔레트로 줄이면
     // 얼룩이 남고, 줄이지 않으면 한 장에 700KB 가 넘었다.
-    intro: '/scenes/class/bg_class_korean_intro.webp',
     find: '/scenes/class/bg_class_rabbit_order.webp',
-    poem: '/scenes/class/bg_class_korean_intro.webp',
     complete: '/scenes/class/bg_class_complete2.webp',
   },
-  /** 책 넘기기·시 읽기 화면이 쓰는 그림 */
+  /** 책 넘기기 화면이 쓰는 그림 */
   props: {
-    book: '/scenes/class/img_class_koreanbook.webp',
     bookFound: '/scenes/class/img_class_bookpage.webp',
     swipeHint: '/scenes/class/img_class_turn_hint.webp',
   },
-  teacherLine: '국어책 {page}페이지를 펴보자!',
+  /*
+   * 두 과목. 회차마다 하나가 나온다.
+   *
+   * 앞부분(선생님이 쪽을 부르고 → 아이가 책을 밀어 찾는다)은 완전히 같고,
+   * 배경과 책 그림만 갈린다. 수학 시간에 국어책을 펴면 아이는 무엇을 하는
+   * 시간인지 알 수 없다.
+   */
+  subjects: {
+    KOREAN: {
+      id: 'KOREAN',
+      title: '국어 시간이에요',
+      lead: '책을 펴고 동시를 읽어볼까요?',
+      scene: '/scenes/class/bg_class_korean_intro.webp',
+      book: '/scenes/class/img_class_koreanbook.webp',
+      teacherLine: '국어책 {page}페이지를 펴보자!',
+      openLabel: '국어책 펴기',
+    },
+    MATH: {
+      id: 'MATH',
+      title: '수학 시간이에요',
+      lead: '책을 펴고 과일을 세어볼까요?',
+      scene: '/scenes/class/bg_class_math_intro.webp',
+      book: '/scenes/class/img_class_mathbook.webp',
+      teacherLine: '수학책 {page}페이지를 펴보자!',
+      openLabel: '수학책 펴기',
+    },
+  },
+  /** 수학 문제 그림 — 과일은 이 위에 얹는다 */
+  mathScene: '/scenes/class/img_class_math_scene.webp',
+  /*
+   * 셀 과일 세 가지. 한 그림에 한 종류만 놓는다 —
+   * 섞으면 "몇 개인가" 가 "무엇이 몇 개인가" 가 되어 묻는 것이 둘로 늘어난다.
+   */
+  fruits: [
+    { id: 'apple', name: '사과', image: '/scenes/class/img_fruit_apple.webp' },
+    { id: 'watermelon', name: '수박', image: '/scenes/class/img_fruit_watermelon.webp' },
+    { id: 'banana', name: '바나나', image: '/scenes/class/img_fruit_banana.webp' },
+  ],
   /*
    * 동시 세 편. 회차마다 한 편을 뽑는다 — 같은 시만 나오면 두 번째 날부터는
    * 읽는 게 아니라 외운 것을 되뇌게 되고, 그러면 발음 채점이 아이가 지금 읽을
    * 수 있는 것을 재는 게 아니라 기억력을 재게 된다.
    *
-   * 각 편의 sentenceId 는 서버 목록(study_1..3)과 같아야 한다. 시를 여기서만
+   * 각 편의 sentenceId 는 서버 목록(study_1..4)과 같아야 한다. 시를 여기서만
    * 고치면 채점은 서버의 옛 문장으로 이뤄져 아이가 무엇을 읽든 어긋난다.
    */
   poems: [
@@ -168,6 +209,24 @@ export const CLASS: ClassScenario = {
     },
   ],
 };
+
+/** 오늘의 과목. 화면에 들어올 때 한 번만 뽑는다. */
+export function randomSubject(): ClassSubject {
+  return Math.random() < 0.5 ? CLASS.subjects.KOREAN : CLASS.subjects.MATH;
+}
+
+/**
+ * 오늘 셀 과일과 개수.
+ *
+ * 개수는 1~5 다. 여섯을 넘기면 아이가 한눈에 못 세고 하나씩 짚어야 하는데,
+ * 그건 이 화면이 가르치려는 것(수를 말로 옮기기)이 아니라 세기 연습이 된다.
+ */
+export function randomFruitCount(): { fruit: MathFruit; count: number } {
+  return {
+    fruit: CLASS.fruits[Math.floor(Math.random() * CLASS.fruits.length)],
+    count: 1 + Math.floor(Math.random() * 5),
+  };
+}
 
 /** 직전에 읽은 시를 적어 두는 자리. 프로필과 따로 둔다 — 날짜가 바뀌어도 남아야 한다. */
 const LAST_POEM_KEY = 'zooearly.lastPoem';
@@ -248,7 +307,8 @@ export const CATEGORY_GEM: Record<CategoryId, { light: string; base: string; dee
 /** 홈·복습 화면이 카테고리 카드를 그릴 때 쓰는 배경 썸네일 */
 export const CATEGORY_THUMB: Record<CategoryId, string> = {
   ARRIVAL: ARRIVAL.scenes.intro,
-  CLASS: CLASS.scenes.intro,
+  // 수업시간은 과목이 둘이라 대표 그림이 없다. 홈 카드에는 국어 쪽을 쓴다.
+  CLASS: CLASS.subjects.KOREAN.scene,
   LUNCH: LUNCH.scenes.intro,
   DISMISSAL: DISMISSAL.scenes.intro,
 };

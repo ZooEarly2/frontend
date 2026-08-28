@@ -85,14 +85,53 @@ export type ClassPoem = {
   textOffset?: number;
 };
 
+/** 셀 수 있는 과일. 그림 하나에 한 종류만 놓는다 — 섞으면 세는 일이 두 가지가 된다 */
+export type MathFruit = {
+  id: 'apple' | 'watermelon' | 'banana';
+  /** 아이에게 읽어줄 이름 */
+  name: string;
+  image: string;
+};
+
+/**
+ * 수업시간의 과목.
+ *
+ * 국어와 수학은 **앞부분이 같고 뒷부분만 다르다** — 둘 다 선생님이 쪽을 부르고,
+ * 아이가 책을 밀어 그 쪽을 찾는다. 그 뒤에 국어는 동시를 읽고 수학은 과일을 센다.
+ * 그래서 책 찾기까지는 한 코드가 맡고, 여기 담긴 그림과 문구만 갈아 끼운다.
+ *
+ * 배경과 책 그림이 과목마다 다른 이유는 화면이 거짓말을 하지 않게 하려는 것이다 —
+ * 수학 시간에 국어책을 펴면 아이는 무엇을 하는 시간인지 알 수 없다.
+ */
+export type ClassSubject = {
+  id: 'KOREAN' | 'MATH';
+  /** 인트로 카드 제목 — "국어 시간이에요" */
+  title: string;
+  /** 그 아래 한 줄 */
+  lead: string;
+  /** 책 찾기 전까지 깔리는 배경 */
+  scene: string;
+  /** 손으로 밀어 넘기는 책 */
+  book: string;
+  /** 선생님이 쪽을 부르는 말. {page} 자리에 쪽 번호가 들어간다 */
+  teacherLine: string;
+  /** 책을 펴는 버튼 문구 */
+  openLabel: string;
+};
+
 export type ClassScenario = {
   id: 'CLASS';
   title: string;
   tagline: string;
-  scenes: { intro: string; find: string; poem: string; complete: string };
+  scenes: { find: string; complete: string };
   /** 화면 위에 올리는 소품 그림 */
-  props: { book: string; bookFound: string; swipeHint: string };
-  teacherLine: string;
-  /** 회차마다 이 중 한 편을 뽑는다 */
+  props: { bookFound: string; swipeHint: string };
+  /** 회차마다 둘 중 하나를 뽑는다 */
+  subjects: { KOREAN: ClassSubject; MATH: ClassSubject };
+  /** 국어 시간에 읽을 동시들 — 그중 한 편을 뽑는다 */
   poems: ClassPoem[];
+  /** 수학 시간에 셀 과일들 — 그중 한 종류를 뽑는다 */
+  fruits: MathFruit[];
+  /** 수학 문제 그림 */
+  mathScene: string;
 };

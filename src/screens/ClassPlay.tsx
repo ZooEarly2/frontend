@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '@/api/client';
-import { pronunciation, warmUpScoring, type RecordingFile } from '@/api/endpoints';
+import { pronunciation, stt, warmUpScoring, type RecordingFile } from '@/api/endpoints';
 import type { PronunciationResult } from '@/api/types';
 import {
   BigButton,
@@ -19,7 +19,9 @@ import { Icon } from '@/components/Icon';
 import { Stage } from '@/components/Stage';
 import { announce, speakLines, stopSpeaking } from '@/audio/speaker';
 import { useRecorder } from '@/audio/useRecorder';
-import { CLASS, randomPage, randomPoem } from '@/scenarios/data';
+import { CLASS, randomFruitCount, randomPage, randomPoem, randomSubject } from '@/scenarios/data';
+import { countLabel, heardCount } from '@/scenarios/counting';
+import { FruitCount } from '@/components/FruitCount';
 import { useAppState } from '@/store/appState';
 import './screens.css';
 
@@ -31,7 +33,17 @@ import './screens.css';
  * 그 밖에는 따라 말하기와 완전히 같은 호출을 쓴다 — 별도 낭독 API 가 필요 없다.
  */
 
-type Step = 'INTRO' | 'FIND_PAGE' | 'FIND_PAGE_DONE' | 'POEM' | 'POEM_FEEDBACK' | 'COMPLETE';
+type Step =
+  | 'INTRO'
+  | 'FIND_PAGE'
+  | 'FIND_PAGE_DONE'
+  // 국어 — 동시를 읽는다
+  | 'POEM'
+  | 'POEM_FEEDBACK'
+  // 수학 — 과일을 센다
+  | 'COUNT'
+  | 'COUNT_ANSWER'
+  | 'COMPLETE';
 
 /** 진행 점 4개 — 다른 시나리오와 같은 눈금을 쓴다 */
 const DOT: Record<Step, number> = {
@@ -40,6 +52,8 @@ const DOT: Record<Step, number> = {
   FIND_PAGE_DONE: 1,
   POEM: 2,
   POEM_FEEDBACK: 2,
+  COUNT: 2,
+  COUNT_ANSWER: 2,
   COMPLETE: 3,
 };
 
@@ -86,6 +100,19 @@ export function ClassPlay() {
   const target = useMemo(() => randomPage(), []);
   // 오늘 읽을 시도 한 번만 뽑는다. 매 렌더마다 뽑으면 글자를 읽는 도중에 시가 바뀐다.
   const poem = useMemo(() => randomPoem(), []);
+  /*
+   * 오늘의 과목. 국어와 수학이 반반이다.
+   *
+   * 책을 찾는 데까지는 두 과목이 완전히 같아서, 이 값은 배경·책 그림·선생님
+   * 말만 갈아 끼운다. 갈리는 것은 책을 편 다음부터다.
+   */
+  const subject = useMemo(() => randomSubject(), []);
+  /** 수학 시간에 셀 것. 한 종류를 1~5개 */
+  const quiz = useMemo(() => randomFruitCount(), []);
+  /** 아이가 말한 개수. 못 알아들었으면 null */
+  const [heard, setHeard] = useState<number | null>(null);
+  /** 답을 못 맞힌 채 되물은 횟수 */
+  const [missed, setMissed] = useState(0);
   // 앞뒤 어느 쪽으로도 가야 하도록, 시작 위치를 목표의 앞이나 뒤에 둔다.
   const [page, setPage] = useState(() => target + (Math.random() < 0.5 ? -1 : 1) * START_OFFSET);
   const [flip, setFlip] = useState<Flip>(null);
@@ -241,16 +268,73 @@ export function ClassPlay() {
     }
   }, []);
 
-  const recorder = useRecorder(onRecorded);
+  /*
+   * 수학은 채점이 아니라 **인식**이다.
+   *
+   * 국어는 "이 문장을 얼마나 잘 읽었나" 라 /pronunciation 으로 채점하지만,
+   * 수학은 "무엇을 말했나" 를 알아야 한다. 서버의 채점 문장 목록에 "세 개" 같은
+   * 답이 있을 리 없으니 채점으로는 답을 맞힐 수가 없다. /stt 로 글자를 받아
+   * 그 안에서 수를 뽑는다.
+   */
+  const onCounted = useCallback(
+    async (audio: RecordingFile) => {
+      abort.current?.abort();
+      const controller = new AbortController();
+      abort.current = controller;
+      setBusy(true);
+      try {
+        const result = await stt(audio, controller.signal);
+        if (!alive.current) return;
+        const said = heardCount(result.text);
+        setHeard(said);
+        if (said === quiz.count) {
+          setMissed(0);
+          setStep('COUNT_ANSWER'); // 맞았으니 칭찬으로 간다
+          return;
+        }
+        /*
+         * 못 알아들었으면 한 번 더 묻는다. 아이가 답을 몰라서가 아니라 소리가
+         * 안 닿은 경우가 많고, 그때 답부터 알려주면 생각할 기회를 뺏는다.
+         * 두 번까지만 되묻고 그 뒤에는 답을 보여준다 — 여기 가둬둘 수는 없다.
+         */
+        if (said === null && missed < 1) {
+          setMissed((n) => n + 1);
+          return; // COUNT 에 그대로 머문다
+        }
+        setMissed((n) => n + 1);
+        setStep('COUNT_ANSWER');
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'CANCELLED') return;
+        if (!alive.current) return;
+        // 서버가 안 되는 것은 아이 잘못이 아니다. 답을 보여주고 따라 말하게 한다.
+        setHeard(null);
+        setStep('COUNT_ANSWER');
+      } finally {
+        if (alive.current && abort.current === controller) setBusy(false);
+      }
+    },
+    [quiz.count, missed],
+  );
+
+  const recorder = useRecorder(subject.id === 'MATH' ? onCounted : onRecorded);
 
   useEffect(() => {
     if (step !== 'COMPLETE') return;
+    /*
+     * 동화에 남길 기록. 과목마다 한 일이 다르다.
+     *
+     * 수학 시간에 시를 읽었다고 적으면 동화가 거짓말을 한다 — 아이는 오늘
+     * 과일을 셌지 시를 읽지 않았다.
+     */
     completeCategory('CLASS', {
       category: 'class',
-      poemText,
-      practicedWord: score?.targetWord ?? null,
+      poemText:
+        subject.id === 'MATH'
+          ? `${quiz.fruit.name} ${countLabel(quiz.count)}를 세었어요.`
+          : poemText,
+      practicedWord: subject.id === 'MATH' ? null : (score?.targetWord ?? null),
     });
-  }, [step, completeCategory, poemText, score]);
+  }, [step, completeCategory, poemText, score, subject, quiz]);
 
   /** 채점이 짚어준 낱말이 몇 번째 줄에 있는지 — 그 줄에만 형광펜을 긋는다. */
   const targetLine = useMemo(() => {
@@ -265,7 +349,8 @@ export function ClassPlay() {
    * 겹쳐 어디를 봐야 할지 알 수 없고, 정작 읽어야 할 시가 묻힌다.
    * 표현 고르기 화면과 같은 규칙이다 — 할 일이 하나뿐인 화면은 바탕을 비운다.
    */
-  const plain = step === 'POEM' || step === 'POEM_FEEDBACK';
+  const plain =
+    step === 'POEM' || step === 'POEM_FEEDBACK' || step === 'COUNT' || step === 'COUNT_ANSWER';
 
   /** 낭독 뒤에 짚어줄 말. 화면에도 뜨고 소리로도 나간다 — 같은 문장을 한 곳에서 만든다. */
   /*
@@ -275,6 +360,14 @@ export function ClassPlay() {
    * 읽었어요!" 가 소리까지 나갔다 — 아이가 어떻게 읽었는지 아무도 모르는데.
    * 따라 말하기에서 고친 것과 같은 종류의 거짓 칭찬이다.
    */
+  /**
+   * 아이가 맞혔나.
+   *
+   * 맞힌 것과 "답을 보여준 것" 은 화면이 달라야 한다 — 둘 다 답이 뜨지만,
+   * 맞힌 아이에게 "따라 말해볼까요?" 라고 하면 자기가 틀린 줄 안다.
+   */
+  const correct = heard === quiz.count;
+
   const graded = score !== null;
   const feedbackLine = !score
     ? '선생님이 잘 못 들었어.\n그래도 끝까지 읽었구나!'
@@ -288,7 +381,7 @@ export function ClassPlay() {
       ? CLASS.scenes.complete
       : step === 'FIND_PAGE' || step === 'FIND_PAGE_DONE'
         ? CLASS.scenes.find
-        : CLASS.scenes.intro;
+        : subject.scene;
 
   /*
    * 펼침면에 인쇄돼 보이는 쪽 번호.
@@ -374,22 +467,22 @@ export function ClassPlay() {
               */}
               <div className="talk-group">
                 <SpeechBubble tone="teacher" speaker="토끼 선생님">
-                  {CLASS.teacherLine.replace('{page}', String(target))}
+                  {subject.teacherLine.replace('{page}', String(target))}
                 </SpeechBubble>
                 <div className="actors actors--grounded">
                   <Character who="teacher" pose="hello" height={184} />
                 </div>
               </div>
               <div className="card" style={{ width: '100%' }}>
-                <p className="title">국어 시간이에요</p>
+                <p className="title">{subject.title}</p>
                 <p className="lead" style={{ marginTop: 6 }}>
-                  책을 펴고 동시를 읽어볼까요?
+                  {subject.lead}
                 </p>
               </div>
             </div>
             <div className="scene-footer">
               <BigButton icon="book" onClick={() => setStep('FIND_PAGE')}>
-                국어책 펴기
+                {subject.openLabel}
               </BigButton>
             </div>
           </>
@@ -415,12 +508,12 @@ export function ClassPlay() {
                 className="book"
                 style={{
                   // 낱장의 앞뒷면이 이 그림의 반쪽씩을 인쇄한다. 경로의 단일 출처.
-                  ['--book-img' as string]: `url(${CLASS.props.book})`,
+                  ['--book-img' as string]: `url(${subject.book})`,
                   // 손끝을 따라 살짝 기운다. 놓으면 제자리로 돌아온다.
                   transform: `rotateY(${drag * 0.12}deg) translateX(${drag * 0.25}px)`,
                 }}
               >
-                <img src={CLASS.props.book} alt="국어책" />
+                <img src={subject.book} alt={subject.id === 'MATH' ? '수학책' : '국어책'} />
 
                 {/* 펼침면에 인쇄된 쪽 번호. 낱장 아래에 깔린다 */}
                 <span className="book__page-no">
@@ -497,7 +590,92 @@ export function ClassPlay() {
               </div>
             </div>
             <div className="scene-footer">
-              <BigButton onClick={() => setStep('POEM')}>동시 읽으러 가기</BigButton>
+              {/* 여기서부터 과목이 갈린다. 앞은 두 과목이 완전히 같았다 */}
+              <BigButton onClick={() => setStep(subject.id === 'MATH' ? 'COUNT' : 'POEM')}>
+                {subject.id === 'MATH' ? '문제 풀러 가기' : '동시 읽으러 가기'}
+              </BigButton>
+            </div>
+          </>
+        )}
+
+        {(step === 'COUNT' || step === 'COUNT_ANSWER') && (
+          <>
+            <div className="stage-center">
+              <div className="talk-group">
+                {/*
+                  key 에 되물은 횟수를 태워 매번 다시 읽어준다. 문구가 같으면
+                  두 번째에는 아무 소리도 안 나서, 아이는 자기 말이 닿았는지를
+                  알 수 없다.
+                */}
+                <SpeechBubble key={`${step}-${missed}`} tone="teacher" speaker="토끼 선생님">
+                  {step === 'COUNT_ANSWER'
+                    ? correct
+                      ? '잘했어요! 정확히 세었어요.'
+                      : `${quiz.fruit.name}가 ${countLabel(quiz.count)} 있어요.
+따라 말해볼까요?`
+                    : missed > 0
+                      ? '잘 못 들었어. 다시 말해줄래?'
+                      : '그림에 있는 과일의 개수는 몇 개인가요?'}
+                </SpeechBubble>
+                <div className="actors actors--grounded">
+                  <Character who="teacher" pose={correct ? 'happy' : 'hello'} height={132} />
+                </div>
+              </div>
+
+              {/*
+                문제 그림. 과일은 그림에 굽지 않고 얹는다 — 종류 셋 × 개수 다섯이면
+                열다섯 장이 되고, 그림 한 장을 고칠 때마다 열다섯 장을 다시 만들어야 한다.
+              */}
+              <div className="math-card" style={{ backgroundImage: `url(${CLASS.mathScene})` }}>
+                <FruitCount fruit={quiz.fruit} count={quiz.count} />
+                {step === 'COUNT_ANSWER' ? (
+                  <span className="math-card__answer">{countLabel(quiz.count)}</span>
+                ) : null}
+              </div>
+
+              {busy ? (
+                <span className="pill-note">
+                  잘 들었어요 <Thinking />
+                </span>
+              ) : (
+                <span className="pill-note">
+                  {step === 'COUNT_ANSWER' && !correct
+                    ? `"${quiz.fruit.name} ${countLabel(quiz.count)}" 라고 말해보세요`
+                    : '마이크를 누르고 몇 개인지 말해보세요'}
+                </span>
+              )}
+            </div>
+
+            <div className="scene-footer">
+              {step === 'COUNT' ? (
+                <div style={{ display: 'grid', placeItems: 'center' }}>
+                  <MicButton
+                    recording={recorder.isRecording}
+                    level={recorder.level}
+                    progress={recorder.progress}
+                    disabled={busy}
+                    hint={recorder.isRecording ? '다 말했으면 다시 눌러요' : '눌러서 말하기'}
+                    onClick={async () => {
+                      if (recorder.isRecording) {
+                        const audio = await recorder.stop();
+                        if (audio) await onCounted(audio);
+                      } else {
+                        stopSpeaking();
+                        await recorder.start();
+                      }
+                    }}
+                  />
+                </div>
+              ) : (
+                <BigButton icon="home" onClick={() => setStep('COMPLETE')}>
+                  다 했어요
+                </BigButton>
+              )}
+              {micBlocked && step === 'COUNT' ? (
+                <BigButton tone="ghost" onClick={() => setStep('COUNT_ANSWER')}>
+                  마이크 없이 넘어가기
+                </BigButton>
+              ) : null}
             </div>
           </>
         )}
