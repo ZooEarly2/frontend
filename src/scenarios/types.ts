@@ -32,7 +32,20 @@ export type DialogueScenario = {
    * ``voice`` 는 말풍선을 읽어줄 목소리다. 또래 친구는 아이 목소리로, 선생님은
    * 어른 목소리로 나간다 — 글자를 못 읽는 아이도 누가 말하는지 소리로 안다.
    */
-  partner: { name: string; image: string; voice: 'TEACHER' | 'FRIEND' };
+  partner: {
+    name: string;
+    /**
+     * 동화에 적을 이름. 없으면 `name` 을 그대로 쓴다.
+     *
+     * 화면에서는 "코끼리 선생님" 이 맞다 — 아이가 보는 캐릭터가 코끼리이고,
+     * 말풍선 위에 누가 말하는지 이름이 떠야 한다. 그런데 **동화 문장에 넣으면
+     * 어색하다**: "코끼리 선생님께서 말씀하셨어요" 는 동물 이야기처럼 읽히는데,
+     * 이 동화는 아이가 오늘 학교에서 겪은 일을 적는 기록이다.
+     */
+    storyName?: string;
+    image: string;
+    voice: 'TEACHER' | 'FRIEND';
+  };
 
 
   /**

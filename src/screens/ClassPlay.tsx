@@ -222,6 +222,19 @@ export function ClassPlay() {
    */
   const hintKey = profile ? TRANSLATION_KEY[profile.nativeLanguage] : null;
   const hintText = hintKey ? (sentenceItem?.translations?.[hintKey] ?? null) : null;
+  /**
+   * 번역문을 어절별 조각으로 쪼갠 것.
+   *
+   * 이게 있어야 **빈칸이 모국어의 어느 말인지 짚어준다.** 뜻만 통째로 보여주면
+   * "그래서 빈칸이 어느 말이냐" 가 그대로 남는다 — 한국어를 못 읽는 아이에게는
+   * 전구가 사실상 먹통인 버튼이 된다.
+   *
+   * 어순이 달라서 같은 자리가 아니다. "사과가(0) 두(1) 개(2) 있어요(3)" 는
+   * 베트남어로 "Có(3) hai(1) quả(2) táo.(0)" 다 — 뒤집힌다.
+   */
+  const hintParts = hintKey ? (sentenceItem?.translationParts?.[hintKey] ?? null) : null;
+  /** 조각을 다시 잇는 문자. 중국어는 띄어쓰기가 없어 붙여 쓴다 */
+  const hintJoiner = hintKey === 'zh' ? '' : ' ';
 
   /** 짚어주는 화면에서 하는 말. 잘 읽은 경우는 여기 오지 않는다 — 칭찬 화면이 맡는다 */
   const readLine = readScore?.targetWord
@@ -1187,7 +1200,26 @@ export function ClassPlay() {
                         */}
                         <span>{hintOpen ? '뜻 접기' : '무슨 뜻이야?'}</span>
                       </button>
-                      {hintOpen ? <p className="hint__text">{hintText}</p> : null}
+                      {hintOpen ? (
+                        <p className="hint__text">
+                          {/*
+                            짚어줄 자리를 아는 경우에만 밑줄을 긋는다. 대응표가 없는데
+                            아무 데나 그으면 틀린 것을 가르치게 된다.
+                          */}
+                          {hintParts && readScore?.targetIndex !== null
+                            ? hintParts.map((part, index) => (
+                                <span
+                                  key={`${part.t}-${index}`}
+                                  className="hint__part"
+                                  data-mark={part.k.includes(readScore?.targetIndex as number)}
+                                >
+                                  {part.t}
+                                  {hintJoiner}
+                                </span>
+                              ))
+                            : hintText}
+                        </p>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>

@@ -92,6 +92,9 @@ export const DISMISSAL: DialogueScenario = {
   },
   partner: {
     name: '코끼리 선생님',
+    // 동화에는 그냥 "선생님" 으로 적는다. "코끼리 선생님께서 말씀하셨어요" 는
+    // 동물 이야기처럼 읽히는데, 이 동화는 아이가 오늘 겪은 일의 기록이다.
+    storyName: '선생님',
     image: '/scenes/dismissal/img_dismissal_elephant.png',
     voice: 'TEACHER',
   },

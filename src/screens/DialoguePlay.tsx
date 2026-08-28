@@ -440,8 +440,9 @@ export function DialoguePlay() {
     completeCategory(scenario.id, {
       category: scenario.storyCategory,
       partnerLine: scenario.partnerLine,
-      // 누가 한 말인지 같이 보낸다 — 없으면 동화가 "다른 사람이" 로 뭉뚱그린다
-      partnerName: scenario.partner.name,
+      // 누가 한 말인지 같이 보낸다 — 없으면 동화가 "다른 사람이" 로 뭉뚱그린다.
+      // 화면에 뜨는 이름과 동화에 적는 이름이 다를 수 있다(partner.storyName 주석 참고).
+      partnerName: scenario.partner.storyName ?? scenario.partner.name,
       /*
        * 아이가 실제로 고른 문장만 담는다. 목표 문장으로 대신 채우지 않는다.
        *
