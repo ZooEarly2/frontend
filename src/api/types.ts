@@ -98,6 +98,14 @@ export type StorySceneCategory = 'school_arrival' | 'class' | 'lunch' | 'school_
 export type StorySceneRecord = {
   category: StorySceneCategory;
   partnerLine?: string | null;
+  /**
+   * 그 말을 한 사람. "급식 선생님" · "코끼리 선생님" · "호랑이 친구".
+   *
+   * **안 보내면 동화가 "다른 사람이" 라고 쓴다.** 서버 프롬프트가 "기록에 없는
+   * 인물을 만들지 마라" 라고 못박아 두었으니, 누구인지 안 알려주면 LLM 은
+   * 뭉뚱그리는 수밖에 없다. 아이가 오늘 만난 사람의 이름이 동화에 남아야 한다.
+   */
+  partnerName?: string | null;
   childSaid?: string | null;
   /**
    * 수업시간에 한 일.
