@@ -1027,27 +1027,74 @@
  * 키프레임(bloom / shock / book-out / shadow-drop / unlock-rise)은
  * 손대지 않는다. 지연 숫자만 옮긴다.
  */
+/*
+ * 폭발의 발광. **전면 섬광이 아니라 320px 국소 발광이다** — 화면 전체 밝기를
+ * 바꾸지 않으므로 WCAG 2.3.1 의 번쩍임에 해당하지 않는다.
+ */
 .unlock__bloom {
+  grid-area: 1 / 1;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 1) 0 18%,
+    rgba(255, 238, 190, 0.85) 45%,
+    rgba(255, 238, 190, 0) 72%
+  );
+  opacity: 0;
   animation: bloom 180ms linear 1550ms forwards;
+  pointer-events: none;
 }
 
 .unlock__shock {
+  grid-area: 1 / 1;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 211, 110, 0.9);
+  opacity: 0;
   animation: shock 480ms cubic-bezier(0.06, 0.86, 0.16, 1) 1550ms forwards;
+  pointer-events: none;
 }
 
 .unlock__shock--late {
+  border-color: rgba(255, 255, 255, 0.85);
+  border-width: 2px;
   animation-delay: 1640ms;
+  animation-duration: 400ms;
 }
 
 .unlock__bookframe {
+  grid-area: 1 / 1;
+  position: relative;
+  isolation: isolate;
   animation: book-out 520ms 1560ms both;
 }
 
 .unlock__bookframe::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 8%;
+  right: 8%;
+  bottom: -10px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(160, 120, 70, 0.4) 0%, rgba(160, 120, 70, 0) 70%);
+  opacity: 0;
   animation: shadow-drop 300ms ease 1800ms forwards;
 }
 
 .unlock__talk {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  /* 여기도 줄어들면 부엉이가 잘린다 */
+  flex: 0 0 auto;
   animation: unlock-rise 320ms cubic-bezier(0.34, 1.1, 0.64, 1) 2030ms both;
 }
 
